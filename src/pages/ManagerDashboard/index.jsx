@@ -382,7 +382,7 @@ function PaymentStatusPanel({ onStudentRegistered }) {
   const [errors, setErrors] = useState({})
 
   // New student form
-  const EMPTY_STU = { full_name:'', full_name_am:'', student_code:'', grade:'Grade 8', age:'', gender:'Male', phone:'', email:'', amount:'', isPaid:'false' }
+  const EMPTY_STU = { full_name:'', full_name_am:'', student_code:'', grade:'KG 1', age:'', gender:'Male', phone:'', email:'', national_id:'', photo:null, photoPreview:null, amount:'', isPaid:'false' }
   const [newStuForm,   setNewStuForm]   = useState(EMPTY_STU)
   const [newStuErrors, setNewStuErrors] = useState({})
 
@@ -391,16 +391,17 @@ function PaymentStatusPanel({ onStudentRegistered }) {
     try {
       const data = await paymentsAPI.getAll()
       setPayments(data.map(p => ({
-        _id:     p.student_code || ('S' + String(p.student_id).padStart(3,'0')),
-        dbId:    p.id,
-        name:    p.full_name || '',
-        am:      p.full_name_am || p.full_name || '',
-        age:     p.age || '—',
-        grade:   p.grade,
-        phone:   p.phone || '—',
-        amount:  Number(p.amount),
-        isPaid:  Boolean(p.is_paid),
+        _id:      p.student_code || ('S' + String(p.student_id).padStart(3,'0')),
+        dbId:     p.id,
+        name:     p.full_name || '',
+        am:       p.full_name_am || p.full_name || '',
+        age:      p.age || '—',
+        grade:    p.grade,
+        phone:    p.phone || '—',
+        amount:   Number(p.amount),
+        isPaid:   Boolean(p.is_paid),
         paidDate: p.paid_date || null,
+        avatar:   p.avatar_url || null,
       })))
     } catch (e) {
       setLoadError('Could not load payments — is the backend running?')
@@ -410,8 +411,9 @@ function PaymentStatusPanel({ onStudentRegistered }) {
   useEffect(() => { loadPayments() }, [loadPayments])
   useEffect(() => { studentsAPI.getAll().then(setAllStudents).catch(() => {}) }, [])
 
-  const getAvatar = (id) => {
-    const n = Number(String(id||'').replace(/\D/g,'')) || 1
+  const getAvatar = (s) => {
+    if (s?.avatar) return s.avatar
+    const n = Number(String(s?._id||'').replace(/\D/g,'')) || 1
     return `https://i.pravatar.cc/80?img=${(n % 70) + 1}`
   }
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '—'
@@ -502,6 +504,8 @@ function PaymentStatusPanel({ onStudentRegistered }) {
         gender:       newStuForm.gender || null,
         phone:        newStuForm.phone.trim() || null,
         email:        newStuForm.email.trim() || null,
+        national_id:  newStuForm.national_id.trim() || null,
+        avatar_url:   newStuForm.photo || null,
         status:       'Active',
       })
       // 2. Create their payment record
@@ -586,7 +590,7 @@ function PaymentStatusPanel({ onStudentRegistered }) {
             {!loading && filtered.map((s, ri) => (
               <tr key={s.dbId || s._id} className={ri % 2 === 1 ? 'ps-tr-alt' : ''}>
                 <td className="ps-td-name">
-                  <img src={getAvatar(s._id)} alt={s.name} className="ps-avatar" />
+                  <img src={getAvatar(s)} alt={s.name} className="ps-avatar" />
                   <div>
                     <div className="ps-name">{s.name}</div>
                     <div className="ps-id">{s._id}</div>
@@ -668,7 +672,7 @@ function PaymentStatusPanel({ onStudentRegistered }) {
                           onChange={e => {
                             const sid = e.target.value
                             const stu = allStudents.find(s => String(s.id) === sid)
-                            const amtMap = { 'Grade 7':1200, 'Grade 8':1500, 'Grade 9':1800 }
+                            const amtMap = { 'KG 1':800, 'KG 2':800, 'KG 3':800 }
                             setForm(p => ({ ...p, student_id:sid, amount: stu ? String(amtMap[stu.grade]||1500) : p.amount }))
                             setErrors(p => ({ ...p, student_id:'' }))
                           }}>
@@ -702,14 +706,13 @@ function PaymentStatusPanel({ onStudentRegistered }) {
                         <select className={`ps-input ${newStuErrors.grade?'ps-input-err':''}`} value={newStuForm.grade}
                           onChange={e => {
                             const g = e.target.value
-                            const amtMap = {'Grade 7':1200,'Grade 8':1500,'Grade 9':1800}
-                            setNewStuForm(p=>({...p, grade:g, amount:String(amtMap[g]||1500)}))
+                            const amtMap = {'KG 1':800,'KG 2':800,'KG 3':800}
+                            setNewStuForm(p=>({...p, grade:g, amount:String(amtMap[g]||800)}))
                             setNewStuErrors(p=>({...p,grade:''}))
                           }}>
-                          <option value="Grade 7">Grade 7</option>
-                          <option value="Grade 8">Grade 8</option>
-                          <option value="Grade 9">Grade 9</option>
-                          <option value="Grade 10">Grade 10</option>
+                          <option value="KG 1">KG 1</option>
+                          <option value="KG 2">KG 2</option>
+                          <option value="KG 3">KG 3</option>
                         </select>
                       </PsField>
                       <PsField label="Age" am="እድሜ" name="age" type="number" placeholder="e.g. 14" form={newStuForm} errors={newStuErrors}
@@ -725,6 +728,62 @@ function PaymentStatusPanel({ onStudentRegistered }) {
                         setForm={setNewStuForm} setErrors={setNewStuErrors} />
                       <PsField label="Email (optional)" am="ኢሜይል" name="email" placeholder="student@email.com" form={newStuForm} errors={newStuErrors}
                         setForm={setNewStuForm} setErrors={setNewStuErrors} />
+                      <PsField label="National ID" am="የብሔራዊ መታወቂያ ቁጥር" name="national_id" placeholder="e.g. ETH-123456789" form={newStuForm} errors={newStuErrors}
+                        setForm={setNewStuForm} setErrors={setNewStuErrors} />
+                      {/* Photo upload */}
+                      <div style={{gridColumn:'1/-1'}}>
+                        <label style={{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6}}>
+                          ፎቶ / Student Photo <span style={{color:'#9ca3af',fontWeight:400}}>(optional)</span>
+                        </label>
+                        <div style={{display:'flex',alignItems:'center',gap:14}}>
+                          {/* Preview circle */}
+                          <div style={{
+                            width:72,height:72,borderRadius:'50%',border:'2px dashed #d1d5db',
+                            background:'#f9fafb',display:'flex',alignItems:'center',justifyContent:'center',
+                            overflow:'hidden',flexShrink:0
+                          }}>
+                            {newStuForm.photoPreview
+                              ? <img src={newStuForm.photoPreview} alt="preview" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                              : <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" width="28" height="28"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                            }
+                          </div>
+                          <div style={{flex:1}}>
+                            <label style={{
+                              display:'inline-flex',alignItems:'center',gap:6,
+                              padding:'8px 14px',borderRadius:7,border:'1.5px solid #d1d5db',
+                              background:'#fff',cursor:'pointer',fontSize:12,fontWeight:600,color:'#374151'
+                            }}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                              {newStuForm.photoPreview ? 'Change Photo' : 'Upload Photo'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{display:'none'}}
+                                onChange={e => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  const reader = new FileReader()
+                                  reader.onload = ev => setNewStuForm(p => ({
+                                    ...p,
+                                    photo: ev.target.result,
+                                    photoPreview: ev.target.result
+                                  }))
+                                  reader.readAsDataURL(file)
+                                }}
+                              />
+                            </label>
+                            {newStuForm.photoPreview && (
+                              <button
+                                type="button"
+                                onClick={() => setNewStuForm(p => ({...p, photo:null, photoPreview:null}))}
+                                style={{marginLeft:8,fontSize:11,color:'#ef4444',background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>
+                                Remove
+                              </button>
+                            )}
+                            <div style={{fontSize:11,color:'#9ca3af',marginTop:4}}>JPG, PNG or WebP · max 2 MB</div>
+                          </div>
+                        </div>
+                      </div>
                       {/* Payment fields */}
                       <div style={{gridColumn:'1/-1',borderTop:'1.5px dashed #e2e8f0',paddingTop:12,marginTop:4}}>
                         <div style={{fontSize:11,fontWeight:700,color:'#16a34a',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>
