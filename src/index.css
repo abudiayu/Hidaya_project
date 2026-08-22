@@ -1,0 +1,76 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #1a73e8;
+  --primary-dark: #1557b0;
+  --primary-light: #e8f0fe;
+  --accent: #00c896;
+  --accent-dark: #00a07a;
+  --bg: #2b2d6e;
+  --surface: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 4px 24px rgba(26,115,232,0.10);
+  --shadow-lg: 0 8px 40px rgba(26,115,232,0.16);
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: clip;
+  max-width: 100vw;
+}
+
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; font-family: inherit; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+img, video, iframe { max-width: 100%; }
+
+/* Prevent horizontal overflow */
+html { overflow-x: clip; scroll-behavior: smooth; }
+
+/* Hide horizontal scrollbar on mobile completely */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Hide scrollbar visually but keep scroll functionality */
+  ::-webkit-scrollbar:horizontal { display: none; height: 0; }
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+}
+
+/* Mobile dashboard fix */
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding-top: 80px !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Prevent any child from overflowing */
+  .dashboard-main * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Exception: tables and pre-formatted content can scroll internally */
+  .res-table-outer,
+  .rpt-charts-row,
+  .rpt-svg {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+}

@@ -1,0 +1,179 @@
+/* ── 404 Page ────────────────────────────────────────────────────────────── */
+.nf-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #0a2416 0%, #1a4a2e 55%, #0d3320 100%);
+  position: relative;
+  overflow: hidden;
+  padding: 40px 24px;
+}
+
+.nf-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(201,168,76,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(201,168,76,0.06) 0%, transparent 40%),
+    repeating-linear-gradient(
+      45deg, transparent, transparent 60px,
+      rgba(201,168,76,0.025) 60px, rgba(201,168,76,0.025) 61px
+    );
+  pointer-events: none;
+}
+
+.nf-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  animation: fadeSlideIn 0.5s ease both;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Ornament */
+.nf-ornament {
+  font-size: 2.5rem;
+  color: rgba(201,168,76,0.6);
+  margin-bottom: 16px;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.08); }
+}
+
+/* 404 Number */
+.nf-code {
+  font-size: clamp(6rem, 18vw, 9rem);
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, #c9a84c, #e8c96a, #c9a84c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -4px;
+  margin-bottom: 12px;
+  text-shadow: none;
+}
+
+/* Arabic */
+.nf-arabic {
+  font-size: 1.3rem;
+  color: rgba(201,168,76,0.75);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 20px;
+  direction: rtl;
+}
+
+/* Title */
+.nf-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 10px;
+}
+
+/* Subtitle */
+.nf-sub {
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.55);
+  line-height: 1.6;
+  margin: 0 0 36px;
+}
+
+/* Action buttons */
+.nf-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 28px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+
+.nf-btn-primary {
+  background: linear-gradient(135deg, #c9a84c, #a07830);
+  color: #0a2416;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.4);
+}
+
+.nf-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(201,168,76,0.5);
+}
+
+.nf-btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.2);
+}
+
+.nf-btn-secondary:hover {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.35);
+  transform: translateY(-2px);
+}
+
+/* Quick links */
+.nf-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.4);
+}
+
+.nf-links-label {
+  color: rgba(255,255,255,0.4);
+  margin-right: 2px;
+}
+
+.nf-link {
+  background: none;
+  border: none;
+  color: rgba(201,168,76,0.7);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+  font-weight: 600;
+}
+
+.nf-link:hover {
+  color: #c9a84c;
+  text-decoration: underline;
+}
+
+.nf-dot {
+  color: rgba(255,255,255,0.25);
+}
+
+@media (max-width: 480px) {
+  .nf-code { font-size: 7rem; }
+  .nf-actions { flex-direction: column; align-items: center; }
+  .nf-btn { width: 200px; justify-content: center; }
+}
