@@ -541,6 +541,13 @@ export default function HomePage() {
       </section>
 
       {/* ══ FOOTER ══ */}
+      {/* Wave: Map (dark) → Footer (dark-purple) */}
+      <div className="sw sw-map-to-footer">
+        <svg viewBox="0 0 1440 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0,40 C200,100 400,0 600,50 C800,100 1100,10 1440,60 L1440,100 L0,100 Z" fill="#2b2d6e"/>
+          <path d="M0,60 C300,20 700,90 1000,40 C1200,10 1350,70 1440,80 L1440,100 L0,100 Z" fill="#1e1f52"/>
+        </svg>
+      </div>
       <footer className="hx-footer">
         <div className="hx-footer-top">
           <div className="hx-footer-brand">

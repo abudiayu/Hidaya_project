@@ -1197,7 +1197,6 @@
 /* ══ FOOTER ══ */
 .hx-footer {
   background: var(--hx-purple-dark);
-  border-top: 3px solid var(--hx-gold);
 }
 .hx-footer-top {
   display: flex;
@@ -1458,6 +1457,15 @@
 }
 .sw-dark-to-dark-map svg {
   filter: drop-shadow(0 -6px 12px rgba(0,0,0,0.3));
+}
+
+/* ── Variant: map (dark-navy) → footer (dark-purple) wave ── */
+.sw-map-to-footer {
+  background: #16183d; /* matches map section bottom gradient color */
+  margin-top: -1px;
+}
+.sw-map-to-footer svg {
+  filter: drop-shadow(0 -6px 14px rgba(0,0,0,0.4));
 }
 
 /* ── Ensure sections have no top-margin that would break the wave ── */
