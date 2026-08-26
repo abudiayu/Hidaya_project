@@ -99,7 +99,59 @@ const teamMembers = [
   { img: '/nave smaller.png',   name: 'Mis. Solomon Tesema',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
 ]
 
+const ABOUT_IMAGES = [ // children classroom
+  'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=700&q=80', // kids studying
+  'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=700&q=80', // teacher & students
+  'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=700&q=80', // school children
+  'https://images.unsplash.com/photo-1588072432836-e10032774350?w=700&q=80', // students learning
+  'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=700&q=80', // books & study
+  'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=700&q=80', // classroom lesson
+  'https://images.unsplash.com/photo-1601297183305-6df142704ea2?w=700&q=80', // kids reading
+  'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=700&q=80', // lecture hall
+  'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=700&q=80', // student writing
+]
+
 const TEAM_VISIBLE = 4 // one row on desktop
+
+function AboutImageSlider() {
+  const [idx, setIdx] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIdx(i => (i + 1) % ABOUT_IMAGES.length)
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="hx-about-img-frame">
+      {ABOUT_IMAGES.map((src, i) => (
+        <img
+          key={i}
+          src={src}
+          alt="Hidaya Islamic Academy"
+          className="hx-about-img"
+          style={{ opacity: i === idx ? 1 : 0, transition: 'opacity 0.8s ease' }}
+        />
+      ))}
+      {/* Dot indicators */}
+      <div className="hx-about-dots">
+        {ABOUT_IMAGES.map((_, i) => (
+          <button
+            key={i}
+            className={`hx-about-dot${i === idx ? ' hx-about-dot-active' : ''}`}
+            onClick={() => setIdx(i)}
+          />
+        ))}
+      </div>
+      <div className="hx-about-badge">
+        <span className="hx-about-badge-num">500+</span>
+        <span className="hx-about-badge-lbl">Students Enrolled</span>
+      </div>
+      <div className="hx-about-badge-2"><FaBook />  Est. 2010</div>
+    </div>
+  )
+}
 
 function TeamSection() {
   const [expanded, setExpanded] = useState(false)
@@ -285,16 +337,7 @@ export default function HomePage() {
         <div className="hx-container">
           <div className="hx-about-grid">
             <div className="hx-about-img-col">
-              <div className="hx-about-img-frame">
-                <div className="hx-about-img-border" />
-                <img src={Students} alt="Hidaya Islamic Academy" className="hx-about-img" />
-                <div className="hx-about-badge">
-                  <span className="hx-about-badge-num">500+</span>
-                  <span className="hx-about-badge-lbl">Students Enrolled</span>
-                </div>
-                
-                <div className="hx-about-badge-2"><FaBook/>  Est. 2010 </div>
-              </div>
+              <AboutImageSlider />
             </div>
             <div className="hx-about-text-col">
               <div className="hx-section-eyebrow">Who We Are</div>
