@@ -458,11 +458,11 @@ export default function HomePage() {
       <TeamSection />
 
       {/* ══ MAP ══ */}
-      {/* Wave: Team (dark) → Map (white) */}
-      <div className="sw sw-dark-to-light">
+      {/* Wave: Team (dark) → Map (dark-navy) — dark wave into map section */}
+      <div className="sw sw-dark-to-dark-map">
         <svg viewBox="0 0 1440 90" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0,0 C480,90 960,0 1440,60 L1440,90 L0,90 Z" fill="#fff"/>
-          <path d="M0,25 C300,85 800,5 1440,55 L1440,90 L0,90 Z" fill="#f4f6fb" opacity="0.6"/>
+          <path d="M0,0 C360,90 1080,0 1440,60 L1440,90 L0,90 Z" fill="#0f1035"/>
+          <path d="M0,20 C400,80 900,10 1440,50 L1440,90 L0,90 Z" fill="#1e1f52" opacity="0.5"/>
         </svg>
       </div>
       <section className="hx-map" id="contact">

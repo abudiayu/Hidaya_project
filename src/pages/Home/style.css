@@ -977,6 +977,39 @@
 }
 .hx-team-toggle-arrow-up { transform: rotate(180deg); }
 
+/* ── Dark-to-dark decorative divider ── */
+.hx-dark-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 0 48px;
+  background: linear-gradient(180deg, #0e1340 0%, #0f1035 100%);
+  position: relative;
+  z-index: 2;
+}
+.hx-dark-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,184,0,.4), rgba(108,99,255,.4), transparent);
+}
+.hx-dark-divider-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,184,0,.15), rgba(108,99,255,.15));
+  border: 1.5px solid rgba(255,184,0,.3);
+  box-shadow: 0 0 24px rgba(255,184,0,.15), 0 0 48px rgba(108,99,255,.1);
+  animation: dividerGlow 3s ease-in-out infinite;
+}
+.hx-dark-divider-icon { font-size: 1.4rem; line-height: 1; }
+@keyframes dividerGlow {
+  0%,100% { box-shadow: 0 0 20px rgba(255,184,0,.15), 0 0 40px rgba(108,99,255,.1); }
+  50%      { box-shadow: 0 0 32px rgba(255,184,0,.3),  0 0 60px rgba(108,99,255,.2); }
+}
+
 /* ══ MAP SECTION ══ */
 .hx-map {
   background: linear-gradient(160deg, #0f1035 0%, #1e1f52 50%, #16183d 100%);
@@ -1416,6 +1449,15 @@
 /* ── Variant: white → dark ── */
 .sw-white-to-dark {
   /* background: transparent; */
+}
+
+/* ── Variant: dark-to-dark map wave (two dark sections, layered wave) ── */
+.sw-dark-to-dark-map {
+  background: #0e1340; /* team section bottom color */
+  margin-top: -1px;
+}
+.sw-dark-to-dark-map svg {
+  filter: drop-shadow(0 -6px 12px rgba(0,0,0,0.3));
 }
 
 /* ── Ensure sections have no top-margin that would break the wave ── */
