@@ -76,15 +76,93 @@ const announcements = [
   { date: 'Mar 28', title: 'Quran Recitation Competition — Results Out', tag: 'Achievement',  color: '#00C48C' },
 ]
 
+const teamMembers = [
+  { img: '/Owner.JPG',          name: 'Ustaz. Muhammed Jemil',  role: 'School Owner & Director', color: '#FFB800', quote: 'Building futures rooted in faith.' },
+  { img: '/Manager.JPG',        name: 'Mr. Omer Shemelis',       role: 'Academic Manager',         color: '#6C63FF', quote: 'Excellence starts with strong leadership.' },
+  { img: '/manager 2.JPG',      name: 'Ustazah Medina Sultan',   role: 'Operations Manager',       color: '#00C48C', quote: 'Every student deserves care.' },
+  { img: '/nave smaller.png',   name: 'Mis. Eman Oumer',         role: 'Senior Teacher',           color: '#00C48C', quote: 'Operations create great learning.' },
+  { img: '/Manager.JPG',        name: 'Mr. Abubeker Getachew',   role: 'Senior Assistant',         color: '#6C63FF', quote: 'Operations create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Janu Hussie',        role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. meaza Yesuf',        role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Nejat Muhammed',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Neima Nuru',         role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Firdos Seid',        role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Elihima Indres',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. hayat Muhammed',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Semira eindew',      role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. medina Ebrahim',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Emebet',             role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Fetiha Mussa',       role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mr. FikreMariyam tegne',  role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Fetiha Seid',        role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Nuru Muhammed',      role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+  { img: '/nave smaller.png',   name: 'Mis. Solomon Tesema',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
+]
+
+const TEAM_VISIBLE = 4 // one row on desktop
+
+function TeamSection() {
+  const [expanded, setExpanded] = useState(false)
+  const visible = teamMembers.slice(0, TEAM_VISIBLE)
+  const hidden  = teamMembers.slice(TEAM_VISIBLE)
+
+  return (
+    <section className="hx-team" id="team">
+      <div className="hx-team-bg" />
+      <div className="hx-container">
+        <div className="hx-section-eyebrow center" style={{color:'#FFB800'}}>Meet The Team</div>
+        <h2 className="hx-section-title center white">Our <span className="hx-title-accent-white">Leadership</span></h2>
+        <div className="hx-team-grid">
+          {visible.map((m, i) => (
+            <div key={i} className="hx-team-card" style={{'--tc': m.color}}>
+              <div className="hx-team-bar" style={{background: m.color}} />
+              <div className="hx-team-avatar-ring" style={{background: `linear-gradient(135deg, ${m.color}, ${m.color}88)`}}>
+                <img src={m.img} alt={m.name} className="hx-team-avatar" />
+              </div>
+              <div className="hx-team-name">{m.name}</div>
+              <div className="hx-team-role" style={{color: m.color}}>{m.role}</div>
+              <div className="hx-team-quote">"{m.quote}"</div>
+              <div className="hx-team-social">
+                {[<FaCloud />,'f','in'].map((icon, si) => (
+                  <a key={si} href="#" className="hx-social-btn" style={{'--tc': m.color}}>{icon}</a>
+                ))}
+              </div>
+            </div>
+          ))}
+          {expanded && hidden.map((m, i) => (
+            <div key={i + TEAM_VISIBLE} className="hx-team-card hx-team-card-extra hx-team-card-visible" style={{'--tc': m.color, '--delay': `${(i % TEAM_VISIBLE) * 60}ms`}}>
+              <div className="hx-team-bar" style={{background: m.color}} />
+              <div className="hx-team-avatar-ring" style={{background: `linear-gradient(135deg, ${m.color}, ${m.color}88)`}}>
+                <img src={m.img} alt={m.name} className="hx-team-avatar" />
+              </div>
+              <div className="hx-team-name">{m.name}</div>
+              <div className="hx-team-role" style={{color: m.color}}>{m.role}</div>
+              <div className="hx-team-quote">"{m.quote}"</div>
+              <div className="hx-team-social">
+                {[<FaCloud />,'f','in'].map((icon, si) => (
+                  <a key={si} href="#" className="hx-social-btn" style={{'--tc': m.color}}>{icon}</a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hx-team-toggle-wrap">
+          <button className="hx-team-toggle-btn" onClick={() => setExpanded(p => !p)}>
+            <span>{expanded ? 'Show Less' : `Show All ${teamMembers.length} Members`}</span>
+            <span className={`hx-team-toggle-arrow${expanded ? ' hx-team-toggle-arrow-up' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
   const { t, lang } = useLang()
-  const videoRef      = useRef(null)
   const videoFrameRef = useRef(null)
-  const [vidPlaying,  setVidPlaying]  = useState(true)
-  const [vidMuted,    setVidMuted]    = useState(true)
-  const [vidVolume,   setVidVolume]   = useState(0.8)
-  const [vidProgress, setVidProgress] = useState(0)
   const [showJoin,    setShowJoin]    = useState(false)
   const [showContact, setShowContact] = useState(false)
   const [joinForm,    setJoinForm]    = useState({ name:'', email:'', phone:'', role:'Student', message:'' })
@@ -161,45 +239,16 @@ export default function HomePage() {
             <div className="hx-video-wrap" ref={videoFrameRef}>
               <div className="hx-video-ring hx-video-ring-1" />
               <div className="hx-video-ring hx-video-ring-2" />
-              <video
-                ref={videoRef}
+              <iframe
                 className="hx-video"
-                src="https://youtu.be/BgrQope-eP4?si=1Xrf2FD9ilZ_bEnt"
-                autoPlay muted loop playsInline
-                onTimeUpdate={() => {
-                  if (!videoRef.current) return
-                  const { currentTime, duration } = videoRef.current
-                  setVidProgress(duration ? (currentTime / duration) * 100 : 0)
-                }}
+                src="https://www.youtube.com/embed/BgrQope-eP4?autoplay=1&mute=1&loop=1&playlist=BgrQope-eP4&controls=1&rel=0&modestbranding=1"
+                title="Hidaya School Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{border:'none'}}
               />
-              <button
-                className={`hx-big-play ${vidPlaying && !vidMuted ? 'hx-big-play--hide' : ''}`}
-                onClick={() => {
-                  if (!videoRef.current) return
-                  if (!vidPlaying) { videoRef.current.play(); setVidPlaying(true) }
-                  if (vidMuted) { videoRef.current.muted = false; videoRef.current.volume = vidVolume || 0.8; setVidMuted(false) }
-                }}
-              >
-                {vidPlaying && vidMuted ? '🔊' : '▶'}
-              </button>
-              <div className="hx-vc">
-                <div className="hx-vc-bar" onClick={e => { const r=e.currentTarget.getBoundingClientRect(); const p=(e.clientX-r.left)/r.width; if(videoRef.current) videoRef.current.currentTime=p*videoRef.current.duration }}>
-                  <div className="hx-vc-fill" style={{width: vidProgress+'%'}} />
-                </div>
-                <div className="hx-vc-row">
-                  <button className="hx-vc-btn" onClick={() => { if(!videoRef.current) return; if(vidPlaying){videoRef.current.pause();setVidPlaying(false)}else{videoRef.current.play();setVidPlaying(true)} }}>
-                    {vidPlaying ? '⏸' : '▶'}
-                  </button>
-                  <button className="hx-vc-btn" onClick={() => { if(!videoRef.current) return; videoRef.current.muted=!vidMuted; setVidMuted(!vidMuted) }}>
-                    {vidMuted ? '🔇' : '🔊'}
-                  </button>
-                  <div style={{flex:1}} />
-                  <button className="hx-vc-btn" onClick={() => { const el=videoFrameRef.current; if(!el) return; if(document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen?.() }}>⛶</button>
-                </div>
-              </div>
               {/* Floating decorative badges */}
               <div className="hx-float-badge hx-float-badge-1">🌟 Est. 2010</div>
-              {/* <div className="hx-float-badge hx-float-badge-2">500+ Students</div> */}
             </div>
           </div>
         </div>
@@ -406,52 +455,7 @@ export default function HomePage() {
           <path d="M0,10 C350,90 750,5 1050,65 C1250,95 1440,50 1440,50 L1440,110 L0,110 Z" fill="#0e1340"/>
         </svg>
       </div>
-      <section className="hx-team" id="team">
-        <div className="hx-team-bg" />
-        <div className="hx-container">
-          <div className="hx-section-eyebrow center" style={{color:'#FFB800'}}>Meet The Team</div>
-          <h2 className="hx-section-title center white">Our <span className="hx-title-accent-white">Leadership</span></h2>
-          <div className="hx-team-grid">
-            {[
-              { img: Owner,            name: 'Ustaz. Muhammed Jemil', role: 'School Owner & Director',  color: '#FFB800', quote: 'Building futures rooted in faith.' },
-              { img: Manager,          name: 'Mr. Omer Shemelis',      role: 'Academic Manager',          color: '#6C63FF', quote: 'Excellence starts with strong leadership.' },
-              { img: Manager2,         name: 'Ustazah Medina Sultan',  role: 'Operations Manager',        color: '#00C48C', quote: 'Every student deserves care.' },
-              { img: '/nave smaller.png', name: 'Mis. Eman Oumer',   role: 'Senior Teacher', color: '#00C48C', quote: 'Operations create great learning.' },
-              { img: Manager, name: 'Mr. Abubeker Getachew',   role: 'Senior Assistant', color: '#6C63FF', quote: 'Operations create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Janu Hussie',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. meaza Yesuf ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Nejat Muhammed ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Neima Nuru ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Firdos Seid ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Elihima Indres ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. hayat Muhammed ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Semira eindew ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. medina Ebrahim ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Emebet ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Fetiha Mussa ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mr. FikreMariyam tegne ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Fetiha Seid ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Nuru Muhammed ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-              { img: '/nave smaller.png', name: 'Mis. Solomon Tesema ',   role: 'Senior Teacher',color: '#FF6B6B', quote: 'Teaches to create great learning.' },
-            ].map((m,i) => (
-              <div key={i} className="hx-team-card" style={{'--tc': m.color}}>
-                <div className="hx-team-bar" style={{background: m.color}} />
-                <div className="hx-team-avatar-ring" style={{background: `linear-gradient(135deg, ${m.color}, ${m.color}88)`}}>
-                  <img src={m.img} alt={m.name} className="hx-team-avatar" />
-                </div>
-                <div className="hx-team-name">{m.name}</div>
-                <div className="hx-team-role" style={{color: m.color}}>{m.role}</div>
-                <div className="hx-team-quote">"{m.quote}"</div>
-                <div className="hx-team-social">
-                  {[<FaCloud />,'f','in'].map((icon,si) => (
-                    <a key={si} href="#" className="hx-social-btn" style={{'--tc': m.color}}>{icon}</a>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TeamSection />
 
       {/* ══ MAP ══ */}
       {/* Wave: Team (dark) → Map (white) */}
@@ -462,25 +466,77 @@ export default function HomePage() {
         </svg>
       </div>
       <section className="hx-map" id="contact">
-        <div className="hx-container">
-          <div className="hx-map-header">
-            <div>
-              <div className="hx-section-eyebrow">Find Us</div>
-              <h2 className="hx-section-title">Visit <span className="hx-title-accent">Our School</span></h2>
-              <p className="hx-section-sub">{t('visitDesc')}</p>
+        <div className="hx-map-inner">
+
+          {/* Left: info + CTA */}
+          <div className="hx-map-left">
+            <div className="hx-map-eyebrow">
+              <span className="hx-map-dot" />
+              Find Us
             </div>
-            <div className="hx-map-actions">
-              <button className="hx-btn-primary" onClick={() => setShowJoin(true)}>Join Us</button>
-              <button className="hx-btn-outline-dark" onClick={() => setShowContact(true)}>Contact Manager</button>
+            <h2 className="hx-map-title">Visit <span className="hx-map-accent">Our School</span></h2>
+            <p className="hx-map-sub">{t('visitDesc')}</p>
+
+            {/* Info pills */}
+            <div className="hx-map-info-list">
+              <div className="hx-map-info-pill">
+                <div className="hx-map-info-icon" style={{background:'linear-gradient(135deg,#6C63FF,#9B93FF)'}}>
+                  <FaMapMarker />
+                </div>
+                <div>
+                  <div className="hx-map-info-label">Address</div>
+                  <div className="hx-map-info-val">Kombolcha, Kebele 8, Ethiopia</div>
+                </div>
+              </div>
+              <div className="hx-map-info-pill">
+                <div className="hx-map-info-icon" style={{background:'linear-gradient(135deg,#FFB800,#FFD84D)'}}>
+                  <FaPhone />
+                </div>
+                <div>
+                  <div className="hx-map-info-label">Phone</div>
+                  <div className="hx-map-info-val">+251 961 622 222</div>
+                </div>
+              </div>
+              <div className="hx-map-info-pill">
+                <div className="hx-map-info-icon" style={{background:'linear-gradient(135deg,#00C48C,#00E5A8)'}}>
+                  <FaEnvelope />
+                </div>
+                <div>
+                  <div className="hx-map-info-label">Email</div>
+                  <div className="hx-map-info-val">info@hidaya.edu</div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="hx-map-cta-row">
+              <button className="hx-map-cta-primary" onClick={() => setShowJoin(true)}>
+                <FaUserGraduate />
+                <span>Join Us</span>
+              </button>
+              <button className="hx-map-cta-outline" onClick={() => setShowContact(true)}>
+                <FaPhone />
+                <span>Contact Manager</span>
+              </button>
             </div>
           </div>
-          <div className="hx-map-frame">
-            <iframe
-              title="Hidaya Islamic Academy"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15722.4!2d39.7434!3d11.0816!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1644c6b0b0b0b0b1%3A0x0!2sKombolcha%2C+Kebele+8%2C+Ethiopia!5e0!3m2!1sen!2set!4v1700000000000!5m2!1sen!2set"
-              width="100%" height="100%" style={{border:0}} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-            />
+
+          {/* Right: map */}
+          <div className="hx-map-right">
+            <div className="hx-map-frame">
+              <iframe
+                title="Hidaya Islamic Academy"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15722.4!2d39.7434!3d11.0816!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1644c6b0b0b0b0b1%3A0x0!2sKombolcha%2C+Kebele+8%2C+Ethiopia!5e0!3m2!1sen!2set!4v1700000000000!5m2!1sen!2set"
+                width="100%" height="100%" style={{border:0}} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+            {/* floating badge */}
+            <div className="hx-map-badge">
+              <FaSchool />
+              <span>Hidaya Islamic Academy</span>
+            </div>
           </div>
+
         </div>
       </section>
 
