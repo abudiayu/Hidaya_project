@@ -78,8 +78,8 @@ export default function Navbar() {
         <div className="navbar-brand" onClick={() => navigate('/')}>
           <img src={HidayaLogo} alt="Hidaya Logo" className="brand-logo-img" />
           <div className="brand-text">
-            <span className="brand-arabic">&#1607;&#1583;&#1575;&#1610;&#1577;</span>
-            <span className="brand-name">Hidaya Islamic Academy</span>
+            <span className="brand-arabic">ሂዳያ</span>
+            <span className="brand-name">Hidaya Academy</span>
           </div>
         </div>
 
