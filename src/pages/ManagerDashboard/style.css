@@ -1488,6 +1488,40 @@
 .mgr-no-results p { font-size: 0.9rem; }
 .mgr-no-results strong { color: var(--text); }
 
+/* ── Student Grid Cards ── */
+.stu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 4px;
+}
+.stu-card {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all .25s;
+}
+.stu-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.1); border-color: #0891b2; transform: translateY(-3px); }
+.stu-card-bar { height: 4px; width: 100%; flex-shrink: 0; }
+.stu-card-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 14px 0; }
+.stu-card-avatar-wrap { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 3px solid #e2e8f0; flex-shrink: 0; }
+.stu-card-avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stu-card-status { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; letter-spacing: .04em; text-transform: uppercase; }
+.stu-card-name { font-size: .92rem; font-weight: 800; color: #1a1a3e; padding: 10px 14px 2px; }
+.stu-card-name-am { font-size: .78rem; color: #7c3aed; padding: 0 14px 2px; font-weight: 600; }
+.stu-card-code { font-size: .72rem; color: #94a3b8; font-weight: 600; padding: 0 14px 10px; font-family: monospace; }
+.stu-card-info { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 10px 14px; border-top: 1px solid #f1f5f9; }
+.stu-info-row { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; }
+.stu-info-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+.stu-info-val { font-size: .78rem; font-weight: 600; color: #334155; }
+.stu-card-btn { margin: 0 14px 14px; padding: 8px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #0891b2; font-size: .78rem; font-weight: 700; cursor: pointer; transition: all .2s; }
+.stu-card-btn:hover { background: #0891b2; color: #fff; border-color: #0891b2; }
+@media (max-width: 600px) { .stu-grid { grid-template-columns: 1fr 1fr; gap: 12px; } }
+@media (max-width: 420px) { .stu-grid { grid-template-columns: 1fr; } }
+
 @media (max-width: 600px) {
   .mgr-list-header { flex-direction: column; align-items: flex-start; }
   .mgr-search-wrap { min-width: 100%; width: 100%; }
@@ -3414,6 +3448,49 @@
 .sr-card-top1 { border-left: 4px solid #fde047; }
 .sr-card-top2 { border-left: 4px solid #94a3b8; }
 .sr-card-top3 { border-left: 4px solid #e879f9; }
+
+/* ── sr-card new layout (scores block + expand button) ── */
+.sr-scores-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+.sr-final-score  { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+.sr-final-label  { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+.sr-grade-badge  { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.sr-expand-btn   { background: none; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; cursor: pointer; color: #64748b; display: flex; align-items: center; flex-shrink: 0; transition: all .2s; }
+.sr-expand-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+/* ── sr-detail expanded section ── */
+.sr-detail {
+  border-top: 1px dashed #e2e8f0;
+  padding: 16px;
+  background: #fafbfc;
+  border-radius: 0 0 13px 13px;
+}
+.sr-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sr-detail-table th {
+  background: #f1f5f9;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+.sr-detail-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+.sr-detail-table tr:last-child td { border-bottom: none; }
+.sr-detail-table tr:hover td { background: #f8fafc; }
 
 /* ── Payment Status Panel ── */
 .ps-wrap { display: flex; flex-direction: column; gap: 16px; }

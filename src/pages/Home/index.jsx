@@ -99,16 +99,17 @@ const teamMembers = [
   { img: '/nave smaller.png',   name: 'Mis. Solomon Tesema',     role: 'Senior Teacher',           color: '#FF6B6B', quote: 'Teaches to create great learning.' },
 ]
 
-const ABOUT_IMAGES = [ // children classroom
-  'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=700&q=80', // kids studying
-  'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=700&q=80', // teacher & students
-  'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=700&q=80', // school children
-  'https://images.unsplash.com/photo-1588072432836-e10032774350?w=700&q=80', // students learning
-  'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=700&q=80', // books & study
-  'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=700&q=80', // classroom lesson
-  'https://images.unsplash.com/photo-1601297183305-6df142704ea2?w=700&q=80', // kids reading
-  'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=700&q=80', // lecture hall
-  'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=700&q=80', // student writing
+const ABOUT_IMAGES = [
+  'https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=700&q=80', // happy kids smiling in class
+  'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=700&q=80', // cheerful children group
+  'https://images.unsplash.com/photo-1529390079861-591de354faf5?w=700&q=80', // happy school kids
+  'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=700&q=80', // smiling boy at school
+  'https://images.unsplash.com/photo-1555009393-f20bdb245c4d?w=700&q=80', // kids studying together happy
+  'https://images.unsplash.com/photo-1543269664-56d93f026496?w=700&q=80', // excited kids raising hands
+  'https://images.unsplash.com/photo-1604881988758-f76ad2f7aac1?w=700&q=80', // smiling kids with books
+  'https://images.unsplash.com/photo-1609710228159-0fa9bd7c0827?w=700&q=80', // joyful students in class
+  'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=700&q=80', // kids learning happily
+  'https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=700&q=80', // happy children at school
 ]
 
 const TEAM_VISIBLE = 4 // one row on desktop

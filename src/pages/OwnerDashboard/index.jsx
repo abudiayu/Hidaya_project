@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react'
 import Sidebar from '../../components/Sidebar'
 import { useLang } from '../../context/LangContext'
-import { zakatAPI, reportsAPI } from '../../api/index.js'
+import { zakatAPI, reportsAPI, studentsAPI, teachersAPI, assistantsAPI } from '../../api/index.js'
 import './style.css'
 
 // â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -176,6 +176,46 @@ export default function OwnerDashboard() {
   const [active, setActive] = useState('overview')
   const [mobileOpen, setMobileOpen] = useState(false)
   const { t } = useLang()
+
+  // ── Live DB data ────────────────────────────────────────────────────────────
+  const [dbStudents,   setDbStudents]   = useState(students)
+  const [dbTeachers,   setDbTeachers]   = useState(teachers)
+  const [dbAssistants, setDbAssistants] = useState(assistants)
+  const [dbLoading,    setDbLoading]    = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      studentsAPI.getAll().catch(() => null),
+      teachersAPI.getAll().catch(() => null),
+      assistantsAPI.getAll().catch(() => null),
+    ]).then(([stuData, tchData, astData]) => {
+      if (stuData?.length)  setDbStudents(stuData.map((s,i) => ({
+        id: s.student_code || `S${String(i+1).padStart(3,'0')}`,
+        name: s.full_name, grade: s.grade, avg: '—', rank: i+1,
+        att: '—', status: s.status || 'Active',
+        img: s.avatar_url || `https://i.pravatar.cc/80?img=${(i%70)+1}`,
+        age: s.age, gender: s.gender, email: s.email || '—',
+        phone: s.phone || '—', subjects: [],
+      })))
+      if (tchData?.length)  setDbTeachers(tchData.map((t,i) => ({
+        id: t.teacher_code || `T${String(i+1).padStart(3,'0')}`,
+        name: t.full_name, subject: t.subject, att: 90, tasks: 85, score: 88,
+        status: t.status || 'Active', email: t.email || '—', phone: t.phone || '—',
+        experience: t.experience || '—', dept: t.department || '—',
+        img: t.avatar_url || `https://i.pravatar.cc/80?img=${(i%70)+10}`,
+        classes: t.classes || [], currentTopic: t.current_topic || '—',
+        rating: t.rating || 0,
+      })))
+      if (astData?.length)  setDbAssistants(astData.map((a,i) => ({
+        id: a.assistant_code || `A${String(i+1).padStart(3,'0')}`,
+        name: a.full_name, role: a.role_title || 'Assistant',
+        att: '—', tasks: '—', rating: a.rating || 0,
+        dept: a.department || '—', email: a.email || '—', phone: a.phone || '—',
+        experience: a.experience || '—', status: a.status || 'Active',
+        img: a.avatar_url || `https://i.pravatar.cc/80?img=${(i%70)+50}`,
+      })))
+    }).finally(() => setDbLoading(false))
+  }, [])
 
   const sidebarItems = [
     { id: 'overview',  icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: t('overview') },
@@ -563,7 +603,7 @@ export default function OwnerDashboard() {
 
           {peopleTab === 'teachers' && (
             <div className="own-people-list">
-              {teachers.map(t => (
+              {dbTeachers.map(t => (
                 <div key={t.id} className="own-people-row">
                   <img src={t.img} alt={t.name} className="own-people-img"/>
                   <div className="own-people-info">
@@ -586,7 +626,7 @@ export default function OwnerDashboard() {
 
           {peopleTab === 'assistants' && (
             <div className="own-people-list">
-              {assistants.map(a => (
+              {dbAssistants.map(a => (
                 <div key={a.id} className="own-people-row">
                   <img src={a.img} alt={a.name} className="own-people-img"/>
                   <div className="own-people-info">
@@ -609,7 +649,7 @@ export default function OwnerDashboard() {
 
           {peopleTab === 'students' && (
             <div className="own-people-list">
-              {students.map(s => (
+              {dbStudents.map(s => (
                 <div key={s.id} className="own-people-row">
                   <img src={s.img} alt={s.name} className="own-people-img"/>
                   <div className="own-people-info">

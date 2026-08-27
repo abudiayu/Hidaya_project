@@ -1,10 +1,10 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 import { useFileStore } from '../../context/FileStore'
 import TeacherProfile from '../../components/TeacherProfile'
 import { useLang } from '../../context/LangContext'
 import { useTeacherStore } from '../../context/TeacherStore'
-import { usersAPI, settingsAPI, paymentsAPI, studentsAPI, teachersAPI, assistantsAPI, reportsAPI } from '../../api/index.js'
+import { usersAPI, settingsAPI, paymentsAPI, studentsAPI, teachersAPI, assistantsAPI, reportsAPI, resultsAPI } from '../../api/index.js'
 import './style.css'
 
 // ── Fallback shapes while loading ─────────────────────────────────────────────
@@ -864,6 +864,23 @@ export default function ManagerDashboard() {
     try { const d = await studentsAPI.getAll(); setStudents((d||[]).map(normalizeStudent)) } catch {}
   }, [])
 
+  // Global refresh — called after any student registration or data change
+  // Refreshes students + results so all sections stay in sync
+  const [paymentKey, setPaymentKey] = useState(0)
+
+  const globalRefresh = useCallback(async () => {
+    try {
+      const [stuData, resData] = await Promise.all([
+        studentsAPI.getAll().catch(() => null),
+        resultsAPI.getAll().catch(() => null),
+      ])
+      if (stuData) setStudents(stuData.map(normalizeStudent))
+      if (resData) setDbResults(resData)
+    } catch {}
+    // Force PaymentStatusPanel to reload by bumping its key
+    setPaymentKey(k => k + 1)
+  }, [])
+
   useEffect(() => {
     setDataLoading(true)
     Promise.all([
@@ -890,6 +907,28 @@ export default function ManagerDashboard() {
   const [xlsSem, setXlsSem] = useState('')
   const [xlsError, setXlsError] = useState('')
   const [xlsLoading, setXlsLoading] = useState(false)
+
+  // ── Real results from DB ──
+  const [dbResults,   setDbResults]   = useState([])
+  const [resLoading,  setResLoading]  = useState(false)
+  const [resLoadErr,  setResLoadErr]  = useState('')
+
+  const loadResults = useCallback(async () => {
+    setResLoading(true); setResLoadErr('')
+    try {
+      // Always reload both students and results together so new students appear
+      const [stuData, resData] = await Promise.all([
+        studentsAPI.getAll().catch(() => null),
+        resultsAPI.getAll().catch(() => null),
+      ])
+      if (stuData) setStudents(stuData.map(normalizeStudent))
+      if (resData) setDbResults(resData)
+    } catch (e) {
+      setResLoadErr('Could not load results from database.')
+    } finally { setResLoading(false) }
+  }, [])
+
+  useEffect(() => { if (active === 'results') loadResults() }, [active, loadResults])
   const [taskForm, setTaskForm] = useState({ assignee:'', task:'', due:'' })
   const [tasks, setTasks] = useState([])
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -1053,58 +1092,105 @@ export default function ManagerDashboard() {
       case 'students': return (
         <div className="dash-content page-enter">
           <div className="mgr-list-header">
-            <h2 className="mgr-section-title">Student Management</h2>
-            <div className="mgr-search-wrap">
-              <svg className="mgr-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input
-                className="mgr-search-input"
-                type="text"
-                placeholder="Search by name, ID or grade..."
-                value={studentSearch}
-                onChange={e => setStudentSearch(e.target.value)}
-              />
-              {studentSearch && (
-                <button className="mgr-search-clear" onClick={() => setStudentSearch('')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              )}
+            <div>
+              <h2 className="mgr-section-title">Student Management</h2>
+              <p className="mgr-section-sub">{students.length} students · Live from database</p>
+            </div>
+            <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+              <div className="mgr-search-wrap">
+                <svg className="mgr-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  className="mgr-search-input"
+                  type="text"
+                  placeholder="Search by name, ID or grade..."
+                  value={studentSearch}
+                  onChange={e => setStudentSearch(e.target.value)}
+                />
+                {studentSearch && (
+                  <button className="mgr-search-clear" onClick={() => setStudentSearch('')}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                )}
+              </div>
+              <button className="ps-add-btn" style={{background:'#0891b2',whiteSpace:'nowrap'}} onClick={globalRefresh}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.73-7.33"/></svg>
+                Refresh
+              </button>
             </div>
           </div>
-          <div className="mgr-search-meta">
-            {(() => {
-              const filtered = students.filter(s =>
-                s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                s.id.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                s.grade.toLowerCase().includes(studentSearch.toLowerCase())
-              )
-              return (
-                <>
-                  <span>{filtered.length} student{filtered.length !== 1 ? 's' : ''} found</span>
-                  <div className="mgr-list">
-                    {filtered.length === 0 ? (
-                      <div className="mgr-no-results">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="40" height="40" style={{color:'#94a3b8',display:'block',margin:'0 auto 12px'}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <p>No students match "<strong>{studentSearch}</strong>"</p>
-                      </div>
-                    ) : filtered.map(s => (
-                      <div key={s.id} className="mgr-list-item">
-                        <img src={s.img} alt={s.name} className="mgr-avatar" />
-                        <div className="mgr-item-info">
-                          <div className="mgr-item-name">{s.name}</div>
-                          <div className="mgr-item-meta">{s.id} • {s.grade}</div>
-                        </div>
-                        <div className="mgr-item-stats">
-                          <div className="mgr-item-stat"><span className="mgr-stat-label-sm">Avg</span><span className="mgr-stat-value-sm">{s.avg}</span></div>
-                          <div className="mgr-item-stat"><span className="mgr-stat-label-sm">Rank</span><span className="mgr-stat-value-sm rank">#{s.rank}</span></div>
-                        </div>
-                        <button className="mgr-item-btn" onClick={() => setSelectedStudent(s)}>View</button>
-                      </div>
-                    ))}
+
+          {(() => {
+            const filtered = students.filter(s => {
+              const q = studentSearch.toLowerCase()
+              return !q ||
+                (s.name||'').toLowerCase().includes(q) ||
+                (s.id||'').toLowerCase().includes(q) ||
+                (s.grade||'').toLowerCase().includes(q) ||
+                (s.full_name_am||'').includes(studentSearch)
+            })
+            return (
+              <>
+                <div style={{fontSize:13,color:'#64748b',marginBottom:12}}>
+                  {filtered.length} student{filtered.length !== 1 ? 's' : ''} found
+                </div>
+                {dataLoading ? (
+                  <div style={{textAlign:'center',padding:48,color:'#94a3b8'}}>
+                    <svg className="login-spin" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.5" strokeLinecap="round" width="32" height="32" style={{display:'block',margin:'0 auto 12px'}}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                    Loading students…
                   </div>
-                </>
-              )
-            })()}
-          </div>
+                ) : filtered.length === 0 ? (
+                  <div className="mgr-no-results">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="40" height="40" style={{color:'#94a3b8',display:'block',margin:'0 auto 12px'}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <p>{studentSearch ? <>No students match "<strong>{studentSearch}</strong>"</> : 'No students in database. Register students from Payment Status.'}</p>
+                  </div>
+                ) : (
+                  <div className="stu-grid">
+                    {filtered.map(s => {
+                      const statusColor = s.status === 'Active' ? '#16a34a' : s.status === 'Suspended' ? '#dc2626' : '#d97706'
+                      const avatar = s.avatar_url || s.img
+                      return (
+                        <div key={s.dbId || s.id} className="stu-card">
+                          {/* Top colored bar */}
+                          <div className="stu-card-bar" style={{background: statusColor}} />
+
+                          {/* Avatar + status */}
+                          <div className="stu-card-top">
+                            <div className="stu-card-avatar-wrap">
+                              <img src={avatar} alt={s.name} className="stu-card-avatar"
+                                onError={e => { e.target.src = `https://i.pravatar.cc/120?img=${(Number(String(s.id||'').replace(/\D/g,''))||1)%70+1}` }} />
+                            </div>
+                            <span className="stu-card-status" style={{background:statusColor+'18',color:statusColor,border:`1px solid ${statusColor}40`}}>
+                              {s.status || 'Active'}
+                            </span>
+                          </div>
+
+                          {/* Name + code */}
+                          <div className="stu-card-name">{s.name || s.full_name}</div>
+                          {s.full_name_am && <div className="stu-card-name-am">{s.full_name_am}</div>}
+                          <div className="stu-card-code">{s.student_code || s.id}</div>
+
+                          {/* Info grid */}
+                          <div className="stu-card-info">
+                            <div className="stu-info-row"><span className="stu-info-label">Grade</span><span className="stu-info-val">{s.grade || '—'}</span></div>
+                            <div className="stu-info-row"><span className="stu-info-label">Age</span><span className="stu-info-val">{s.age || '—'}</span></div>
+                            <div className="stu-info-row"><span className="stu-info-label">Gender</span><span className="stu-info-val">{s.gender || '—'}</span></div>
+                            <div className="stu-info-row"><span className="stu-info-label">Phone</span><span className="stu-info-val">{s.phone || '—'}</span></div>
+                            {s.email && <div className="stu-info-row" style={{gridColumn:'1/-1'}}><span className="stu-info-label">Email</span><span className="stu-info-val" style={{fontSize:11}}>{s.email}</span></div>}
+                            {s.national_id && <div className="stu-info-row" style={{gridColumn:'1/-1'}}><span className="stu-info-label">National ID</span><span className="stu-info-val">{s.national_id}</span></div>}
+                            <div className="stu-info-row" style={{gridColumn:'1/-1'}}><span className="stu-info-label">Registered</span><span className="stu-info-val">{s.created_at ? new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '—'}</span></div>
+                          </div>
+
+                          <button className="stu-card-btn" onClick={() => setSelectedStudent(s)}>View Profile</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       )
 
@@ -1398,108 +1484,12 @@ export default function ManagerDashboard() {
               <p className="mgr-section-sub">ተማሪዎችን ያስተዳድሩ · Manage student payments</p>
             </div>
           </div>
-          <PaymentStatusPanel onStudentRegistered={reloadStudents} />
+          <PaymentStatusPanel key={paymentKey} onStudentRegistered={globalRefresh} />
         </div>
       )
 
       case 'results': {
-        const SUBJECTS = [
-          { key: 'math',      en: 'Math',      am: 'ሒሳብ' },
-          { key: 'english',   en: 'English',   am: 'እንግሊዝኛ' },
-          { key: 'physics',   en: 'Physics',   am: 'ፊዚክስ' },
-          { key: 'chemistry', en: 'Chemistry', am: 'ኬሚስትሪ' },
-          { key: 'biology',   en: 'Biology',   am: 'ባዮሎጂ' },
-          { key: 'history',   en: 'History',   am: 'ታሪክ' },
-        ]
-        const MARK_COLS = [
-          { label: 'Assign.', max: 10 },
-          { label: 'C.Work',  max: 10 },
-          { label: 'Mid',     max: 30 },
-          { label: 'Final',   max: 50 },
-        ]
-        const STUDENT_LIST = [
-          { name: 'Fatima Noor',    am: 'ፋጢማ ኑር',      img: 'https://i.pravatar.cc/80?img=47' },
-          { name: 'Ali Hassan',     am: 'አሊ ሃሰን',       img: 'https://i.pravatar.cc/80?img=12' },
-          { name: 'Amina Tesfaye',  am: 'አሚና ተስፋዬ',    img: 'https://i.pravatar.cc/80?img=25' },
-          { name: 'Sara Ahmed',     am: 'ሳራ አህመድ',      img: 'https://i.pravatar.cc/80?img=45' },
-          { name: 'Dawit Alemu',    am: 'ዳዊት አለሙ',      img: 'https://i.pravatar.cc/80?img=52' },
-          { name: 'Hana Bekele',    am: 'ሃና በቀለ',       img: 'https://i.pravatar.cc/80?img=29' },
-          { name: 'Omar Khalid',    am: 'ዑመር ካሊድ',     img: 'https://i.pravatar.cc/80?img=33' },
-          { name: 'Meron Abate',    am: 'ሜሮን አባተ',      img: 'https://i.pravatar.cc/80?img=48' },
-          { name: 'Bilal Mohammed', am: 'ቢላል መሐመድ',    img: 'https://i.pravatar.cc/80?img=57' },
-          { name: 'Yusuf Ibrahim',  am: 'ዩሱፍ ኢብራሂም',  img: 'https://i.pravatar.cc/80?img=68' },
-        ]
-        const seedData = {
-          // Rank 1 — top scorer
-          'Fatima Noor': {
-            sem1: { math:[10,10,29,49], english:[9,10,28,48], physics:[10,9,29,48], chemistry:[9,10,28,47], biology:[10,10,30,50], history:[9,9,27,46] },
-            sem2: { math:[10,10,30,50], english:[10,10,29,49], physics:[10,10,30,49], chemistry:[10,10,29,48], biology:[10,10,30,50], history:[10,10,28,48] },
-          },
-          // Rank 2
-          'Amina Tesfaye': {
-            sem1: { math:[9,9,27,47], english:[9,9,26,46], physics:[9,9,27,46], chemistry:[9,9,26,45], biology:[9,9,27,46], history:[9,9,26,45] },
-            sem2: { math:[10,9,28,48], english:[9,10,27,47], physics:[9,9,28,47], chemistry:[9,9,27,46], biology:[10,9,28,47], history:[9,9,27,46] },
-          },
-          // Rank 3
-          'Ali Hassan': {
-            sem1: { math:[8,9,25,44], english:[7,8,22,40], physics:[9,8,27,46], chemistry:[6,9,24,42], biology:[8,7,26,45], history:[9,9,28,47] },
-            sem2: { math:[9,9,27,46], english:[8,9,24,43], physics:[9,9,28,47], chemistry:[7,9,25,44], biology:[9,8,27,46], history:[9,10,29,48] },
-          },
-          // Rank 4
-          'Hana Bekele': {
-            sem1: { math:[8,8,24,42], english:[8,8,23,41], physics:[8,7,23,41], chemistry:[8,8,22,40], biology:[8,8,24,42], history:[8,8,23,41] },
-            sem2: { math:[8,9,25,43], english:[8,8,24,42], physics:[8,8,24,42], chemistry:[8,8,23,41], biology:[8,9,25,43], history:[8,8,24,42] },
-          },
-          // Rank 5
-          'Sara Ahmed': {
-            sem1: { math:[7,7,20,38], english:[8,9,24,43], physics:[6,7,21,37], chemistry:[8,8,23,41], biology:[7,9,25,44], history:[8,8,22,40] },
-            sem2: { math:[8,8,22,40], english:[9,9,25,44], physics:[7,8,22,39], chemistry:[8,9,24,43], biology:[8,9,26,45], history:[8,9,23,42] },
-          },
-          // Rank 6
-          'Dawit Alemu': {
-            sem1: { math:[7,7,19,36], english:[7,7,20,36], physics:[6,7,18,34], chemistry:[7,7,19,35], biology:[7,7,20,36], history:[7,7,19,35] },
-            sem2: { math:[7,8,21,38], english:[7,8,21,38], physics:[7,7,19,36], chemistry:[7,7,20,37], biology:[7,8,21,38], history:[7,7,20,37] },
-          },
-          // Rank 7
-          'Meron Abate': {
-            sem1: { math:[6,7,18,34], english:[7,6,19,35], physics:[6,6,17,33], chemistry:[6,7,18,34], biology:[6,7,18,34], history:[7,6,19,35] },
-            sem2: { math:[7,7,19,36], english:[7,7,20,36], physics:[6,7,18,34], chemistry:[7,6,19,35], biology:[7,7,19,36], history:[7,7,20,36] },
-          },
-          // Rank 8
-          'Omar Khalid': {
-            sem1: { math:[6,6,18,34], english:[7,7,20,36], physics:[5,6,17,32], chemistry:[7,6,19,35], biology:[6,7,20,36], history:[7,7,21,38] },
-            sem2: { math:[7,7,20,36], english:[7,8,21,38], physics:[6,7,18,34], chemistry:[7,7,20,37], biology:[7,7,21,38], history:[7,8,22,39] },
-          },
-          // Rank 9
-          'Bilal Mohammed': {
-            sem1: { math:[5,6,15,29], english:[6,5,16,30], physics:[5,5,14,27], chemistry:[5,6,15,28], biology:[5,5,15,28], history:[6,5,16,30] },
-            sem2: { math:[6,6,16,31], english:[6,6,17,32], physics:[5,6,15,29], chemistry:[6,5,16,30], biology:[6,6,16,30], history:[6,6,17,32] },
-          },
-          // Rank 10 — lowest scorer
-          'Yusuf Ibrahim': {
-            sem1: { math:[5,6,16,30], english:[6,6,18,33], physics:[5,5,15,28], chemistry:[6,5,17,31], biology:[5,6,16,30], history:[6,6,18,33] },
-            sem2: { math:[6,6,17,32], english:[6,7,19,34], physics:[5,6,16,30], chemistry:[6,6,18,33], biology:[6,6,17,31], history:[6,7,19,35] },
-          },
-        }
-        const subjectTotal = (marks) => {
-          if (!marks) return null
-          const filled = marks.filter(m => m !== null && m !== '' && !isNaN(Number(m)))
-          if (!filled.length) return null
-          return filled.reduce((a, b) => a + Number(b), 0)
-        }
-        const semesterAvg = (studentName, sem) => {
-          const d = seedData[studentName]?.[sem]
-          if (!d) return null
-          const totals = SUBJECTS.map(s => subjectTotal(d[s.key])).filter(v => v !== null)
-          if (!totals.length) return null
-          return Math.round(totals.reduce((a, b) => a + b, 0) / totals.length)
-        }
-        const finalYearAvg = (studentName) => {
-          const s1 = semesterAvg(studentName, 'sem1')
-          const s2 = semesterAvg(studentName, 'sem2')
-          if (s1 === null || s2 === null) return null
-          return Math.round((s1 + s2) / 2)
-        }
+        // ── Helpers ──────────────────────────────────────────────────────────
         const gradeColor = (v) => {
           if (v === null || v === undefined) return '#94a3b8'
           if (v >= 80) return '#16a34a'; if (v >= 65) return '#0891b2'
@@ -1511,72 +1501,95 @@ export default function ManagerDashboard() {
           if (v >= 75) return 'B+'; if (v >= 70) return 'B'; if (v >= 65) return 'B-'
           if (v >= 60) return 'C'; return 'F'
         }
-        const SEM_BTNS = [
-          { key: 'sem1',  en: 'Semester 1', am: 'ሴሚስተር 1' },
-          { key: 'sem2',  en: 'Semester 2', am: 'ሴሚስተር 2' },
-          { key: 'final', en: 'Final Year', am: 'የመጨረሻ አመት' },
-        ]
-        const filtered = STUDENT_LIST.filter(s =>
-          s.name.toLowerCase().includes((resSearch || '').toLowerCase()) ||
-          s.am.includes(resSearch || '')
+
+        // ── Build per-student data — merge ALL students with their results ────
+        // Students without results still appear with "No results yet"
+        const studentMap = {}
+
+        // First: seed all known students from the students list
+        for (const s of students) {
+          studentMap[s.dbId || s.id] = {
+            id:    s.dbId || s.id,
+            name:  s.name || s.full_name || '—',
+            code:  s.student_code || s.id || '—',
+            grade: s.grade || '—',
+            sems:  { sem1: {}, sem2: {} },
+            hasResults: false,
+          }
+        }
+
+        // Then: overlay actual results on top
+        for (const r of dbResults) {
+          const key = r.student_id
+          if (!studentMap[key]) {
+            studentMap[key] = {
+              id:    r.student_id,
+              name:  r.student_name || '—',
+              code:  r.student_code || '—',
+              grade: r.grade || '—',
+              sems:  { sem1: {}, sem2: {} },
+              hasResults: false,
+            }
+          }
+          if (r.semester === 'sem1' || r.semester === 'sem2') {
+            studentMap[key].sems[r.semester][r.subject_name] =
+              r.total ?? (r.assignment + r.class_work + r.mid_exam + r.final_exam)
+            studentMap[key].hasResults = true
+          }
+        }
+
+        const studentList = Object.values(studentMap)
+
+        const semAvg = (sems, sem) => {
+          const vals = Object.values(sems[sem] || {}).filter(v => v !== null && v !== undefined)
+          if (!vals.length) return null
+          return Math.round(vals.reduce((a,b) => a+b, 0) / vals.length)
+        }
+        const finalAvg = (sems) => {
+          const s1 = semAvg(sems, 'sem1'), s2 = semAvg(sems, 'sem2')
+          if (s1 === null || s2 === null) return s1 ?? s2
+          return Math.round((s1 + s2) / 2)
+        }
+
+        // Rank by final avg — students with no results go to the end
+        const ranked = [...studentList]
+          .map(s => ({ ...s, s1: semAvg(s.sems,'sem1'), s2: semAvg(s.sems,'sem2'), fin: finalAvg(s.sems) }))
+          .sort((a,b) => {
+            if (b.fin === null && a.fin === null) return 0
+            if (b.fin === null) return -1
+            if (a.fin === null) return 1
+            return (b.fin ?? -1) - (a.fin ?? -1)
+          })
+          .map((s,i) => ({ ...s, rank: s.fin !== null ? i+1 : null }))
+
+        const filtered = ranked.filter(s =>
+          !resSearch || s.name.toLowerCase().includes(resSearch.toLowerCase()) || s.code.toLowerCase().includes(resSearch.toLowerCase())
         )
 
-        // Pre-compute all 3 rank maps from the FULL list (not filtered)
-        const makeRankMap = (sem) => Object.fromEntries(
-          [...STUDENT_LIST]
-            .map(s => ({ name: s.name, avg: sem === 'final' ? finalYearAvg(s.name) : semesterAvg(s.name, sem) }))
-            .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1))
-            .map((s, i) => [s.name, i + 1])
-        )
-        const rankSem1  = makeRankMap('sem1')
-        const rankSem2  = makeRankMap('sem2')
-        const rankFinal = makeRankMap('final')
-
-        const rankIcon = (r) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : null
+        const rankIcon  = (r) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : null
         const rankStyle = (r) => r === 1
-          ? { bg: '#fef9c3', color: '#854d0e', border: '#fde047' }
-          : r === 2
-          ? { bg: '#f1f5f9', color: '#334155', border: '#94a3b8' }
-          : r === 3
-          ? { bg: '#fdf2f8', color: '#86198f', border: '#e879f9' }
-          : { bg: 'var(--hover,#f8fafc)', color: 'var(--text-muted,#64748b)', border: 'var(--border,#e2e8f0)' }
+          ? { bg:'#fef9c3', color:'#854d0e', border:'#fde047' }
+          : r === 2 ? { bg:'#f1f5f9', color:'#334155', border:'#94a3b8' }
+          : r === 3 ? { bg:'#fdf2f8', color:'#86198f', border:'#e879f9' }
+          : { bg:'var(--hover,#f8fafc)', color:'var(--text-muted,#64748b)', border:'var(--border,#e2e8f0)' }
 
-        // ── Excel Export ──
-        const SUBJECTS_XLS = [
-          { key: 'math',      label: 'Math' },
-          { key: 'english',   label: 'English' },
-          { key: 'physics',   label: 'Physics' },
-          { key: 'chemistry', label: 'Chemistry' },
-          { key: 'biology',   label: 'Biology' },
-          { key: 'history',   label: 'History' },
-        ]
-
+        // ── Excel Export from DB data ─────────────────────────────────────────
         const handleExport = async () => {
-          if (!xlsSem) { setXlsError('Please select a semester option first'); return }
-          setXlsError('')
-          setXlsLoading(true)
+          if (!xlsSem) { setXlsError('Please select a semester first'); return }
+          setXlsError(''); setXlsLoading(true)
           try {
             const XLSX = await import('xlsx')
             const wb = XLSX.utils.book_new()
 
             const buildSheet = (sem) => {
-              // Header: Student | Class | Math | English | Physics | Chemistry | Biology | History | Total AVG
-              const header = ['Student Name', 'Class', ...SUBJECTS_XLS.map(s => s.label), 'Total AVG', 'Grade']
+              const allSubjects = [...new Set(dbResults.map(r => r.subject_name).filter(Boolean))].sort()
+              const header = ['Student', 'Code', 'Grade', ...allSubjects, 'AVG', 'Grade Label']
               const rows = [header]
-              STUDENT_LIST.forEach(student => {
-                const d = seedData[student.name]?.[sem] || {}
-                const subTotals = SUBJECTS_XLS.map(s => {
-                  const marks = d[s.key]
-                  if (!marks) return ''
-                  const filled = marks.filter(m => m !== null && m !== '')
-                  return filled.length ? filled.reduce((a, b) => a + Number(b), 0) : ''
-                })
-                const numericTotals = subTotals.filter(v => v !== '')
-                const avg = numericTotals.length
-                  ? Math.round(numericTotals.reduce((a, b) => a + b, 0) / numericTotals.length)
-                  : ''
-                const gl = avg !== '' ? gradeLabel(avg) : ''
-                rows.push([student.name, 'Grade 8', ...subTotals, avg, gl])
+              ranked.forEach(s => {
+                const subTotals = allSubjects.map(sub => s.sems[sem]?.[sub] ?? '')
+                const numericVals = subTotals.filter(v => v !== '')
+                const avg = numericVals.length ? Math.round(numericVals.reduce((a,b) => a+b,0)/numericVals.length) : ''
+                rows.push([s.name, s.code, s.grade, ...subTotals, avg, avg !== '' ? gradeLabel(avg) : ''])
               })
               return rows
             }
@@ -1584,40 +1597,15 @@ export default function ManagerDashboard() {
             if (xlsSem === 'all') {
               const ws1 = XLSX.utils.aoa_to_sheet(buildSheet('sem1'))
               const ws2 = XLSX.utils.aoa_to_sheet(buildSheet('sem2'))
-              // Final sheet: Student | Class | Sem1 AVG | Sem2 AVG | Final AVG | Grade
-              const finalHeader = ['Student Name', 'Class', 'Semester 1 AVG', 'Semester 2 AVG', 'Final AVG', 'Grade']
-              const finalRows = [finalHeader]
-              STUDENT_LIST.forEach(student => {
-                const s1 = semesterAvg(student.name, 'sem1')
-                const s2 = semesterAvg(student.name, 'sem2')
-                const fin = finalYearAvg(student.name)
-                finalRows.push([student.name, 'Grade 8', s1 ?? '', s2 ?? '', fin ?? '', gradeLabel(fin)])
-              })
-              const ws3 = XLSX.utils.aoa_to_sheet(finalRows)
-              ;[ws1, ws2, ws3].forEach(ws => {
-                ws['!cols'] = [{ wch: 22 }, { wch: 10 }, ...Array(7).fill({ wch: 12 })]
-              })
               XLSX.utils.book_append_sheet(wb, ws1, 'Semester 1')
               XLSX.utils.book_append_sheet(wb, ws2, 'Semester 2')
-              XLSX.utils.book_append_sheet(wb, ws3, 'Final Results')
             } else {
-              const rows = buildSheet(xlsSem)
-              const ws = XLSX.utils.aoa_to_sheet(rows)
-              ws['!cols'] = [{ wch: 22 }, { wch: 10 }, ...Array(7).fill({ wch: 12 })]
+              const ws = XLSX.utils.aoa_to_sheet(buildSheet(xlsSem))
               XLSX.utils.book_append_sheet(wb, ws, xlsSem === 'sem1' ? 'Semester 1' : 'Semester 2')
             }
-
-            const filename = xlsSem === 'all'
-              ? 'Student_Results_All.xlsx'
-              : xlsSem === 'sem1'
-                ? 'Student_Results_Sem1.xlsx'
-                : 'Student_Results_Sem2.xlsx'
-            XLSX.writeFile(wb, filename)
-          } catch (e) {
-            setXlsError('Export failed. Please try again.')
-          } finally {
-            setXlsLoading(false)
-          }
+            XLSX.writeFile(wb, xlsSem === 'all' ? 'Student_Results_All.xlsx' : xlsSem === 'sem1' ? 'Student_Results_Sem1.xlsx' : 'Student_Results_Sem2.xlsx')
+          } catch { setXlsError('Export failed. Please try again.') }
+          finally { setXlsLoading(false) }
         }
 
         return (
@@ -1625,219 +1613,156 @@ export default function ManagerDashboard() {
             <div className="mgr-list-header" style={{ marginBottom: 16 }}>
               <div>
                 <h2 className="mgr-section-title">ውጤቶች / Student Results</h2>
-                <p className="mgr-section-sub">እይታ ብቻ · View-only &nbsp;·&nbsp; 6 ርዕሶች / Subjects &nbsp;·&nbsp; Assign /10 · C.Work /10 · Mid /30 · Final /50</p>
+                <p className="mgr-section-sub">Live from database · Teachers submit marks → appear here automatically</p>
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
                 <div className="mgr-res-search-wrap">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input className="mgr-res-search" placeholder="ስም ፈልግ / Search student…" value={resSearch || ''} onChange={e => setResSearch(e.target.value)} />
+                  <input className="mgr-res-search" placeholder="Search student…" value={resSearch||''} onChange={e=>setResSearch(e.target.value)} />
                 </div>
-                {/* Export controls */}
+                <button className="ps-add-btn" style={{background:'#0891b2'}} onClick={loadResults}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.73-7.33"/></svg>
+                  Refresh
+                </button>
                 <div className="xls-export-group">
-                  <select
-                    className={`xls-sem-select ${xlsError ? 'xls-select-err' : ''}`}
-                    value={xlsSem}
-                    onChange={e => { setXlsSem(e.target.value); setXlsError('') }}
-                  >
-                    <option value="">— Select Semester —</option>
+                  <select className={`xls-sem-select ${xlsError?'xls-select-err':''}`} value={xlsSem} onChange={e=>{setXlsSem(e.target.value);setXlsError('')}}>
+                    <option value="">— Semester —</option>
                     <option value="sem1">Semester 1</option>
                     <option value="sem2">Semester 2</option>
-                    <option value="all">All (Sem 1 + Sem 2 + Final)</option>
+                    <option value="all">All (Sem 1 + Sem 2)</option>
                   </select>
-                  <button
-                    className={`xls-export-btn ${!xlsSem || xlsLoading ? 'xls-btn-disabled' : ''}`}
-                    onClick={handleExport}
-                    disabled={!xlsSem || xlsLoading}
-                  >
-                    {xlsLoading ? (
-                      <span className="xls-spinner" />
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    )}
+                  <button className={`xls-export-btn ${!xlsSem||xlsLoading?'xls-btn-disabled':''}`} onClick={handleExport} disabled={!xlsSem||xlsLoading}>
+                    {xlsLoading ? <span className="xls-spinner"/> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>}
                     {xlsLoading ? 'Generating…' : 'Export Excel'}
                   </button>
                 </div>
               </div>
             </div>
-            {xlsError && (
-              <div className="xls-error-msg">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                {xlsError}
+
+            {xlsError && <div className="xls-error-msg">{xlsError}</div>}
+
+            {resLoadErr && (
+              <div style={{background:'#fee2e2',border:'1px solid #fca5a5',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:13,color:'#991b1b'}}>
+                {resLoadErr} — <button onClick={loadResults} style={{color:'#991b1b',fontWeight:700,background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>Retry</button>
               </div>
             )}
-            <div className="sr-list">
-              {filtered.map((student) => {
-                const fin   = finalYearAvg(student.name)
-                const s1avg = semesterAvg(student.name, 'sem1')
-                const s2avg = semesterAvg(student.name, 'sem2')
-                const r1 = rankSem1[student.name]
-                const r2 = rankSem2[student.name]
-                const rf = rankFinal[student.name]
-                const rs = rankStyle(rf)
-                const activeKey = resExpanded?.[student.name] || null
-                const toggle = (key) => setResExpanded(prev => ({ ...prev, [student.name]: prev?.[student.name] === key ? null : key }))
 
-                return (
-                  <div key={student.name} className={`sr-card ${rf <= 3 ? `sr-card-top${rf}` : ''}`}>
-                    <div className="sr-row">
-
-                      {/* ── Left: profile + ranks ── */}
-                      <div className="sr-profile-block">
-                        {/* Final rank medal */}
-                        <div className="sr-medal" style={{ background: rs.bg, color: rs.color, border: `2px solid ${rs.border}` }}>
-                          {rankIcon(rf) ?? `#${rf}`}
-                        </div>
-                        <img src={student.img} alt={student.name} className="sr-avatar" />
-                        <div className="sr-profile-info">
-                          <div className="sr-name-en">{student.name}</div>
-                          <div className="sr-name-am">{student.am}</div>
-                          {/* Per-semester ranks */}
-                          <div className="sr-rank-pills">
-                            <span className="sr-rank-pill">
-                              <span className="sr-rank-pill-label">ሴሚስተር 1</span>
-                              <span className="sr-rank-pill-val" style={{ color: r1 <= 3 ? '#d97706' : 'var(--text-muted,#64748b)' }}>
-                                {rankIcon(r1) ?? `#${r1}`}
-                              </span>
-                            </span>
-                            <span className="sr-rank-pill">
-                              <span className="sr-rank-pill-label">ሴሚስተር 2</span>
-                              <span className="sr-rank-pill-val" style={{ color: r2 <= 3 ? '#d97706' : 'var(--text-muted,#64748b)' }}>
-                                {rankIcon(r2) ?? `#${r2}`}
-                              </span>
-                            </span>
-                            <span className="sr-rank-pill sr-rank-pill-final">
-                              <span className="sr-rank-pill-label">የመጨረሻ</span>
-                              <span className="sr-rank-pill-val" style={{ color: rf <= 3 ? '#d97706' : 'var(--text-muted,#64748b)' }}>
-                                {rankIcon(rf) ?? `#${rf}`}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ── Right: buttons + AVG ── */}
-                      <div className="sr-actions">
-                        {SEM_BTNS.map(btn => (
-                          <button key={btn.key} className={`sr-btn ${activeKey === btn.key ? 'sr-btn-active' : ''}`} onClick={() => toggle(btn.key)}>
-                            <span className="sr-btn-am">{btn.am}</span>
-                            <span className="sr-btn-en">{btn.en}</span>
-                            <span className="sr-btn-avg" style={{ color: gradeColor(btn.key === 'sem1' ? s1avg : btn.key === 'sem2' ? s2avg : fin) }}>
-                              {(btn.key === 'sem1' ? s1avg : btn.key === 'sem2' ? s2avg : fin) ?? '—'}
-                            </span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="10" height="10" style={{ transform: activeKey === btn.key ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform .2s', marginTop: 2 }}><polyline points="6 9 12 15 18 9"/></svg>
-                          </button>
-                        ))}
-                        <span className="sr-final-pill" style={{ background: gradeColor(fin) + '18', color: gradeColor(fin) }}>
-                          🏆 {fin ?? '—'} <strong>{gradeLabel(fin)}</strong>
-                        </span>
-                      </div>
-                    </div>
-                    {activeKey && (
-                      <div className="sr-expand">
-                        <div className="sr-expand-title">
-                          {SEM_BTNS.find(b => b.key === activeKey)?.am} / {SEM_BTNS.find(b => b.key === activeKey)?.en}
-                        </div>
-                        {activeKey === 'final' ? (
-                          <div className="sr-final-panel">
-                            <div className="sr-final-row">
-                              {['sem1','sem2'].map((sk) => {
-                                const sv = semesterAvg(student.name, sk)
-                                return (
-                                  <div key={sk} className="sr-final-sem">
-                                    <div className="sr-final-sem-label">{sk === 'sem1' ? 'ሴሚስተር 1 / Semester 1' : 'ሴሚስተር 2 / Semester 2'}</div>
-                                    <span className="sr-avg-badge sr-avg-total" style={{ background: gradeColor(sv) + '18', color: gradeColor(sv) }}>{sv ?? '—'}</span>
-                                  </div>
-                                )
-                              })}
-                              <div className="sr-final-sem">
-                                <div className="sr-final-sem-label">የመጨረሻ አማካይ / Final AVG</div>
-                                <span className="sr-avg-badge sr-avg-final" style={{ background: gradeColor(fin) + '22', color: gradeColor(fin) }}>{fin ?? '—'} <strong>{gradeLabel(fin)}</strong></span>
-                              </div>
-                            </div>
-                            <div className="sr-subject-table-wrap" style={{ marginTop: 14 }}>
-                              <table className="sr-subject-table">
-                                <thead>
-                                  <tr>
-                                    <th className="sr-th-subj">ርዕስ / Subject</th>
-                                    <th className="sr-th-avg">Sem 1</th>
-                                    <th className="sr-th-avg">Sem 2</th>
-                                    <th className="sr-th-avg" style={{ color: 'var(--primary,#6366f1)' }}>AVG</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {SUBJECTS.map((s, si) => {
-                                    const t1 = subjectTotal(seedData[student.name]?.sem1?.[s.key])
-                                    const t2 = subjectTotal(seedData[student.name]?.sem2?.[s.key])
-                                    const avg = t1 !== null && t2 !== null ? Math.round((t1 + t2) / 2) : null
-                                    return (
-                                      <tr key={s.key} className={si % 2 === 1 ? 'sr-tr-alt' : ''}>
-                                        <td className="sr-td-subj"><div className="sr-subj-en">{s.en}</div><div className="sr-subj-am">{s.am}</div></td>
-                                        <td className="sr-td-avg"><span style={{ color: gradeColor(t1), fontWeight: 600 }}>{t1 ?? '—'}</span></td>
-                                        <td className="sr-td-avg"><span style={{ color: gradeColor(t2), fontWeight: 600 }}>{t2 ?? '—'}</span></td>
-                                        <td className="sr-td-avg"><span className="sr-avg-badge" style={{ background: gradeColor(avg) + '18', color: gradeColor(avg) }}>{avg ?? '—'}</span></td>
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="sr-subject-table-wrap">
-                            <table className="sr-subject-table">
-                              <thead>
-                                <tr>
-                                  <th className="sr-th-subj">ርዕስ / Subject</th>
-                                  {MARK_COLS.map(c => (
-                                    <th key={c.label} className="sr-th-col">
-                                      <div className="sr-th-max">{c.max}</div>
-                                      <div className="sr-th-lbl">{c.label}</div>
-                                    </th>
-                                  ))}
-                                  <th className="sr-th-avg">AVG</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {SUBJECTS.map((s, si) => {
-                                  const marks = seedData[student.name]?.[activeKey]?.[s.key] || [null,null,null,null]
-                                  const total = subjectTotal(marks)
-                                  return (
-                                    <tr key={s.key} className={si % 2 === 1 ? 'sr-tr-alt' : ''}>
-                                      <td className="sr-td-subj"><div className="sr-subj-en">{s.en}</div><div className="sr-subj-am">{s.am}</div></td>
-                                      {MARK_COLS.map((c, ci) => (
-                                        <td key={ci} className="sr-td-mark">
-                                          <span style={{ color: marks[ci] !== null ? gradeColor(Number(marks[ci]) / c.max * 100) : '#94a3b8', fontWeight: 600 }}>
-                                            {marks[ci] ?? '—'}
-                                          </span>
-                                        </td>
-                                      ))}
-                                      <td className="sr-td-avg">
-                                        <span className="sr-avg-badge" style={{ background: gradeColor(total) + '18', color: gradeColor(total) }}>{total ?? '—'}</span>
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                              <tfoot>
-                                <tr className="sr-tfoot">
-                                  <td colSpan={MARK_COLS.length + 1} className="sr-tfoot-label">አማካይ / Semester Average</td>
-                                  <td className="sr-td-avg">
-                                    <span className="sr-avg-badge sr-avg-total" style={{ background: gradeColor(semesterAvg(student.name, activeKey)) + '22', color: gradeColor(semesterAvg(student.name, activeKey)) }}>
-                                      {semesterAvg(student.name, activeKey) ?? '—'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
+            {resLoading ? (
+              <div style={{textAlign:'center',padding:48,color:'#94a3b8'}}>
+                <svg className="login-spin" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.5" strokeLinecap="round" width="32" height="32" style={{display:'block',margin:'0 auto 12px'}}>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+                Loading results from database…
+              </div>
+            ) : (
+              <div className="sr-list">
+                {filtered.length === 0 && (
+                  <div className="sr-empty">
+                    {dbResults.length === 0
+                      ? 'No results in database yet. Teachers need to submit marks first.'
+                      : 'No students match your search.'}
                   </div>
-                )
-              })}
-              {filtered.length === 0 && <div className="sr-empty">ምንም ተማሪ አልተገኘም / No students found</div>}
-            </div>
+                )}
+                {filtered.map((student) => {
+                  const rs = rankStyle(student.rank)
+
+                  return (
+                    <div key={student.id} className={`sr-card ${student.rank && student.rank <= 3 ? `sr-card-top${student.rank}` : ''}`}>
+                      <div className="sr-row">
+                        <div className="sr-profile-block">
+                          <div className="sr-medal" style={{background:rs.bg, color:rs.color, border:`2px solid ${rs.border}`}}>
+                            {student.rank ? (rankIcon(student.rank) ?? `#${student.rank}`) : '—'}
+                          </div>
+                          <div className="sr-profile-info">
+                            <div className="sr-name-en">{student.name}</div>
+                            <div className="sr-name-am" style={{fontSize:11,color:'#64748b'}}>{student.code} · {student.grade}</div>
+                            <div className="sr-rank-pills">
+                              {student.s1 !== null
+                                ? <span className="sr-rank-pill"><span className="sr-rank-pill-label">Sem 1</span><span className="sr-rank-pill-val" style={{color:gradeColor(student.s1)}}>{student.s1}</span></span>
+                                : <span className="sr-rank-pill" style={{color:'#94a3b8',fontSize:10}}>No Sem 1</span>
+                              }
+                              {student.s2 !== null
+                                ? <span className="sr-rank-pill"><span className="sr-rank-pill-label">Sem 2</span><span className="sr-rank-pill-val" style={{color:gradeColor(student.s2)}}>{student.s2}</span></span>
+                                : <span className="sr-rank-pill" style={{color:'#94a3b8',fontSize:10}}>No Sem 2</span>
+                              }
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="sr-scores-block">
+                          <div className="sr-final-score" style={{color: student.fin !== null ? gradeColor(student.fin) : '#94a3b8'}}>
+                            {student.fin ?? '—'}
+                          </div>
+                          <div className="sr-final-label">Final AVG</div>
+                          <div className="sr-grade-badge" style={{background:(student.fin !== null ? gradeColor(student.fin) : '#94a3b8')+'18', color: student.fin !== null ? gradeColor(student.fin) : '#94a3b8'}}>
+                            {gradeLabel(student.fin)}
+                          </div>
+                        </div>
+
+                        <button
+                          className="sr-expand-btn"
+                          onClick={() => setResExpanded(p => ({...p, [student.id]: !p[student.id]}))}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"
+                            style={{transform: resExpanded?.[student.id] ? 'rotate(180deg)' : 'none', transition:'transform .25s'}}>
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </button>
+                      </div>
+
+                      {resExpanded?.[student.id] && (
+                        <div className="sr-detail">
+                          {!student.hasResults ? (
+                            <div style={{textAlign:'center',padding:'18px 0',color:'#94a3b8',fontSize:13}}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="28" height="28" style={{display:'block',margin:'0 auto 8px',color:'#cbd5e1'}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                              No results submitted yet — teacher has not entered marks for this student.
+                            </div>
+                          ) : (
+                          ['sem1','sem2'].map(sem => {
+                            const semResults = dbResults.filter(r => r.student_id === student.id && r.semester === sem)
+                            if (!semResults.length) return null
+                            return (
+                              <div key={sem} style={{marginBottom:12}}>
+                                <div style={{fontSize:12,fontWeight:700,color:'#64748b',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                                  {sem === 'sem1' ? 'Semester 1' : 'Semester 2'}
+                                </div>
+                                <table className="sr-detail-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Subject</th>
+                                      <th>Assign</th>
+                                      <th>C.Work</th>
+                                      <th>Mid</th>
+                                      <th>Final</th>
+                                      <th>Total</th>
+                                      <th>Grade</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {semResults.map(r => (
+                                      <tr key={r.subject_name}>
+                                        <td>{r.subject_name}</td>
+                                        <td>{r.assignment ?? '—'}</td>
+                                        <td>{r.class_work ?? '—'}</td>
+                                        <td>{r.mid_exam ?? '—'}</td>
+                                        <td>{r.final_exam ?? '—'}</td>
+                                        <td style={{fontWeight:700,color:gradeColor(r.total)}}>{r.total ?? '—'}</td>
+                                        <td><span className="sr-grade-badge" style={{background:gradeColor(r.total)+'18',color:gradeColor(r.total)}}>{r.grade_label || gradeLabel(r.total)}</span></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )
+                          })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <div className="mgr-res-legend">
               <span style={{color:'#16a34a'}}>■</span> ≥80 A &nbsp;
               <span style={{color:'#0891b2'}}>■</span> ≥65 B &nbsp;
