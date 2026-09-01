@@ -577,7 +577,7 @@ export default function HomePage() {
             {/* floating badge */}
             <div className="hx-map-badge">
               <FaSchool />
-              <span>Hidaya Islamic Academy</span>
+              <span>Hidaya Academy</span>
             </div>
           </div>
 
