@@ -92,6 +92,14 @@ export const teachersAPI = {
   trash:    (id)        => request('PATCH', `/teachers/${id}/trash`),
   restore:  (id)        => request('PATCH', `/teachers/${id}/restore`),
   getTrashed: ()        => get('/teachers/trash'),
+  // Teacher-self (authenticated teacher only)
+  me:           ()          => get('/teachers/me'),
+  myStudents:   ()          => get('/teachers/me/students'),
+  myTimetable:  ()          => get('/teachers/me/timetable'),
+  myTopics:     (params={}) => { const qs = new URLSearchParams(params).toString(); return get(`/teachers/me/topics${qs ? '?' + qs : ''}`); },
+  submitTopic:  (body)      => post('/teachers/me/topics', body),
+  myAttendance: (params={}) => { const qs = new URLSearchParams(params).toString(); return get(`/teachers/me/attendance${qs ? '?' + qs : ''}`); },
+  saveAttendance: (body)    => post('/teachers/me/attendance', body),
 };
 
 // ═══════════════════════════════════════════════════════════════
