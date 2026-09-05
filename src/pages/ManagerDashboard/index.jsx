@@ -4,7 +4,7 @@ import { useFileStore } from '../../context/FileStore'
 import TeacherProfile from '../../components/TeacherProfile'
 import { useLang } from '../../context/LangContext'
 import { useTeacherStore } from '../../context/TeacherStore'
-import { usersAPI, settingsAPI, paymentsAPI, studentsAPI, teachersAPI, assistantsAPI, reportsAPI, resultsAPI } from '../../api/index.js'
+import { usersAPI, settingsAPI, paymentsAPI, studentsAPI, teachersAPI, assistantsAPI, reportsAPI, resultsAPI, attendanceAPI } from '../../api/index.js'
 import './style.css'
 
 // ── Fallback shapes while loading ─────────────────────────────────────────────
@@ -174,58 +174,256 @@ function Stars({ rating }) {
 }
 
 function StudentModal({ student, onClose }) {
+  const [detail,  setDetail]  = useState(null)  // { results, attendance }
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState('')
+
+  // Determine the numeric DB id to query
+  const dbId = student.dbId ?? student.id
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setError('')
+
+    Promise.all([
+      resultsAPI.getByStudent(dbId).catch(() => []),
+      attendanceAPI.get({ type: 'student', entity_id: dbId }).catch(() => []),
+    ]).then(([results, attendance]) => {
+      if (cancelled) return
+      setDetail({ results: results || [], attendance: attendance || [] })
+    }).catch(() => {
+      if (!cancelled) setError('Unable to load student information.')
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+
+    return () => { cancelled = true }
+  }, [dbId])
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const gradeColor = (v) => {
+    if (v === null || v === undefined) return '#94a3b8'
+    if (v >= 80) return '#16a34a'
+    if (v >= 65) return '#0891b2'
+    if (v >= 50) return '#d97706'
+    return '#dc2626'
+  }
+  const gradeLabel = (v) => {
+    if (v === null || v === undefined) return 'N/A'
+    if (v >= 90) return 'A+'; if (v >= 85) return 'A'; if (v >= 80) return 'A-'
+    if (v >= 75) return 'B+'; if (v >= 70) return 'B'; if (v >= 65) return 'B-'
+    if (v >= 60) return 'C'; return 'F'
+  }
+
+  // Compute derived values from real results
+  const results     = detail?.results  || []
+  const attendance  = detail?.attendance || []
+
+  // All subjects across all semesters, averaged per subject
+  const subjectMap = {}
+  for (const r of results) {
+    const key = r.subject_name || r.subject_id
+    if (!key) continue
+    if (!subjectMap[key]) subjectMap[key] = { totals: [], label: key }
+    if (r.total !== null && r.total !== undefined) subjectMap[key].totals.push(r.total)
+  }
+  const subjectList = Object.values(subjectMap).map(s => {
+    const avg = s.totals.length ? Math.round(s.totals.reduce((a,b)=>a+b,0)/s.totals.length) : null
+    return { name: s.label, avg }
+  }).sort((a,b) => (b.avg??-1) - (a.avg??-1))
+
+  // Overall avg score from all result totals
+  const allTotals = results.map(r => r.total).filter(v => v !== null && v !== undefined)
+  const overallAvg = allTotals.length ? Math.round(allTotals.reduce((a,b)=>a+b,0)/allTotals.length) : null
+
+  // Attendance %
+  const attPct = attendance.length
+    ? Math.round((attendance.filter(a => a.status === 'Present').length / attendance.length) * 100)
+    : null
+
+  // Performance history grouped by semester
+  const semMap = {}
+  for (const r of results) {
+    if (!semMap[r.semester]) semMap[r.semester] = []
+    if (r.total !== null && r.total !== undefined) semMap[r.semester].push(r.total)
+  }
+  const historyRows = Object.entries(semMap).sort(([a],[b]) => a.localeCompare(b)).map(([sem, totals]) => {
+    const avg = totals.length ? Math.round(totals.reduce((a,b)=>a+b,0)/totals.length) : null
+    return { term: sem === 'sem1' ? 'Semester 1' : sem === 'sem2' ? 'Semester 2' : sem, avg }
+  })
+
+  const isNewStudent = results.length === 0 && historyRows.length === 0
+
+  // ── Avatar ─────────────────────────────────────────────────────────────────
+  const avatarSrc = student.avatar_url || student.photo || student.img || null
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.name||'S')}&background=0891b2&color=fff&size=128`
+
+  // ── Status color ───────────────────────────────────────────────────────────
+  const statusColor = (student.status||'Active') === 'Active' ? '#16a34a'
+    : (student.status||'Active') === 'Suspended' ? '#dc2626' : '#d97706'
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={e=>e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>
+      <div className="smd-card" onClick={e => e.stopPropagation()}>
+
+        {/* ── Close button ── */}
+        <button className="modal-close smd-close" onClick={onClose}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <div className="modal-profile">
-          <img src={student.img} alt={student.name} className="modal-avatar" style={{borderColor:'#0891b2'}} />
-          <div className="modal-profile-info">
-            <h2>{student.name}</h2>
-            <div className="modal-meta-row">
-              <span className="modal-id-tag">{student.id}</span>
-              <span className="modal-grade-tag">{student.grade}</span>
-              <span className={`modal-status ${student.status==='Active'?'active':''}`}>{student.status}</span>
+
+        {/* ── New Student Badge — top-right, never overlaps close ── */}
+        {!loading && isNewStudent && (
+          <div className="smd-new-badge">
+            ✦ New Student
+          </div>
+        )}
+
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="smd-header">
+          <div className="smd-avatar-wrap">
+            <img
+              src={avatarSrc || fallbackAvatar}
+              alt={student.name}
+              className="smd-avatar"
+              onError={e => { e.target.src = fallbackAvatar }}
+            />
+          </div>
+          <div className="smd-header-info">
+            <h2 className="smd-name">{student.name || student.full_name || '—'}</h2>
+            <div className="smd-tags">
+              <span className="smd-tag smd-tag-id">{student.student_code || student.id || '—'}</span>
+              <span className="smd-tag smd-tag-grade">{student.grade || '—'}</span>
+              <span className="smd-tag smd-tag-status" style={{background:statusColor+'18',color:statusColor,border:`1px solid ${statusColor}40`}}>
+                {student.status || 'Active'}
+              </span>
             </div>
-            <div className="modal-contact">
-              <span>{student.email}</span>
-              <span>{student.phone}</span>
-              <span>Age {student.age} · {student.gender}</span>
+            <div className="smd-contact">
+              {(student.email) && (
+                <span className="smd-contact-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  {student.email}
+                </span>
+              )}
+              {(student.phone) && (
+                <span className="smd-contact-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.85a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
+                  {student.phone}
+                </span>
+              )}
+              {(student.age || student.gender) && (
+                <span className="smd-contact-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                  {student.age ? `Age ${student.age}` : ''}{student.age && student.gender ? ' · ' : ''}{student.gender || ''}
+                </span>
+              )}
+              {student.national_id && (
+                <span className="smd-contact-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/><line x1="14" y1="15" x2="18" y2="15"/></svg>
+                  Fiyda: {student.national_id}
+                </span>
+              )}
             </div>
           </div>
         </div>
-        <div className="modal-stats-row">
-          <div className="modal-stat-box" style={{'--mc':'#0891b2'}}><div className="modal-stat-val">{student.avg}</div><div className="modal-stat-lbl">Avg Score</div></div>
-          <div className="modal-stat-box" style={{'--mc':'#d97706'}}><div className="modal-stat-val">#{student.rank}</div><div className="modal-stat-lbl">Class Rank</div></div>
-          <div className="modal-stat-box" style={{'--mc':'#16a34a'}}><div className="modal-stat-val">{student.attendance}</div><div className="modal-stat-lbl">Attendance</div></div>
-        </div>
-        <div className="modal-section">
-          <div className="modal-section-title">Subject Grades</div>
-          <div className="modal-subjects">
-            {student.subjects.map(s=>(
-              <div key={s.name} className="modal-subject-row">
-                <span className="modal-subj-name">{s.name}</span>
-                <div className="modal-bar-wrap"><div className="modal-bar" style={{width:`${s.score}%`}} /></div>
-                <span className="modal-subj-score">{s.score}%</span>
-                <span className={`modal-grade-badge grade-${s.grade.replace('+','p').replace('-','m')}`}>{s.grade}</span>
-              </div>
-            ))}
+
+        <div className="smd-divider" />
+
+        {/* ── Loading / Error / Content ─────────────────────────────────────── */}
+        {loading ? (
+          <div className="smd-skeleton-wrap">
+            <div className="smd-stats-row">
+              {[0,1,2].map(i => <div key={i} className="smd-stat-skeleton" />)}
+            </div>
+            <div className="smd-skel smd-skel-title" />
+            {[0,1,2].map(i => <div key={i} className="smd-skel smd-skel-row" />)}
+            <div className="smd-skel smd-skel-title" style={{marginTop:20}} />
+            {[0,1].map(i => <div key={i} className="smd-skel smd-skel-row" />)}
           </div>
-        </div>
-        <div className="modal-section">
-          <div className="modal-section-title">Performance History</div>
-          <div className="modal-history">
-            {student.history.map(h=>(
-              <div key={h.term} className="modal-history-row">
-                <span className="modal-hist-term">{h.term}</span>
-                <span className="modal-hist-avg">{h.avg}</span>
-                <span className="modal-hist-rank">Rank #{h.rank}</span>
-              </div>
-            ))}
+        ) : error ? (
+          <div className="smd-error">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="32" height="32" style={{color:'#fca5a5',display:'block',margin:'0 auto 10px'}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {error}
           </div>
-        </div>
+        ) : (
+          <>
+            {/* ── Summary Cards ── */}
+            <div className="smd-stats-row">
+              <div className="smd-stat-card" style={{'--smc':'#0891b2'}}>
+                <div className="smd-stat-val" style={{color: overallAvg !== null ? gradeColor(overallAvg) : '#94a3b8'}}>
+                  {overallAvg !== null ? overallAvg : 'N/A'}
+                </div>
+                <div className="smd-stat-lbl">Avg Score</div>
+              </div>
+              <div className="smd-stat-card" style={{'--smc':'#d97706'}}>
+                <div className="smd-stat-val" style={{color:'#d97706'}}>
+                  {overallAvg !== null ? `#${historyRows.length > 0 ? '—' : 'N/A'}` : 'N/A'}
+                </div>
+                <div className="smd-stat-lbl">Class Rank</div>
+              </div>
+              <div className="smd-stat-card" style={{'--smc':'#16a34a'}}>
+                <div className="smd-stat-val" style={{color: attPct !== null ? (attPct >= 80 ? '#16a34a' : attPct >= 60 ? '#d97706' : '#dc2626') : '#94a3b8'}}>
+                  {attPct !== null ? `${attPct}%` : 'N/A'}
+                </div>
+                <div className="smd-stat-lbl">Attendance</div>
+              </div>
+            </div>
+
+            {/* ── Subject Grades ── */}
+            <div className="smd-section">
+              <div className="smd-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Subject Grades
+              </div>
+              {subjectList.length === 0 ? (
+                <div className="smd-empty">No academic results yet.</div>
+              ) : (
+                <div className="smd-subjects">
+                  {subjectList.map(s => (
+                    <div key={s.name} className="smd-subject-row">
+                      <span className="smd-subj-name">{s.name}</span>
+                      <div className="smd-bar-wrap">
+                        <div className="smd-bar" style={{width:`${s.avg ?? 0}%`, background: gradeColor(s.avg)}} />
+                      </div>
+                      <span className="smd-subj-score" style={{color: gradeColor(s.avg)}}>
+                        {s.avg !== null ? `${s.avg}` : 'N/A'}
+                      </span>
+                      <span className="smd-grade-pill" style={{background: gradeColor(s.avg)+'18', color: gradeColor(s.avg)}}>
+                        {gradeLabel(s.avg)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Performance History ── */}
+            <div className="smd-section">
+              <div className="smd-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Performance History
+              </div>
+              {historyRows.length === 0 ? (
+                <div className="smd-empty">No performance history available yet.</div>
+              ) : (
+                <div className="smd-history">
+                  {historyRows.map((h, i) => (
+                    <div key={i} className="smd-hist-row">
+                      <span className="smd-hist-term">{h.term}</span>
+                      <div className="smd-hist-right">
+                        <span className="smd-hist-avg" style={{color: gradeColor(h.avg)}}>
+                          {h.avg !== null ? `${h.avg} avg` : 'N/A'}
+                        </span>
+                        <span className="smd-hist-grade" style={{background: gradeColor(h.avg)+'18', color: gradeColor(h.avg)}}>
+                          {gradeLabel(h.avg)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -899,6 +1097,7 @@ export default function ManagerDashboard() {
     { id: 'results',        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, label: t('studentResultsLabel') },
     { id: 'payment-status', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>, label: 'Payment Status' },
     { id: 'reports',        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>, label: t('reports') },
+    { id: 'trash',          icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>, label: 'Trash' },
     { id: 'settings',       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>, label: 'Settings' },
   ]
   const [resTerm, setResTerm] = useState('sem1')
@@ -907,6 +1106,107 @@ export default function ManagerDashboard() {
   const [xlsSem, setXlsSem] = useState('')
   const [xlsError, setXlsError] = useState('')
   const [xlsLoading, setXlsLoading] = useState(false)
+
+  // ── Trash / soft-delete state ─────────────────────────────────────────────
+  const [trashConfirm, setTrashConfirm] = useState(null) // { item, kind: 'student'|'teacher'|'assistant' }
+  const [hardConfirm,  setHardConfirm]  = useState(null) // { item, kind }
+  const [trashBusy,    setTrashBusy]    = useState(false)
+  const [trashItems,   setTrashItems]   = useState([])   // combined trashed records
+  const [trashLoading, setTrashLoading] = useState(false)
+  const [trashTab,     setTrashTab]     = useState('all') // 'all'|'students'|'staff'
+  const [trashToast,   setTrashToast]   = useState('')   // brief success message
+
+  const showTrashToast = (msg) => {
+    setTrashToast(msg)
+    setTimeout(() => setTrashToast(''), 2800)
+  }
+
+  // Load all trashed items (students + teachers + assistants)
+  const loadTrash = useCallback(async () => {
+    setTrashLoading(true)
+    try {
+      const [stuData, tchData, asstData] = await Promise.all([
+        studentsAPI.getTrashed().catch(() => []),
+        teachersAPI.getTrashed().catch(() => []),
+        assistantsAPI.getTrashed().catch(() => []),
+      ])
+      const combined = [
+        ...(stuData  || []).map(s => ({ ...s, _kind: 'student',   _label: s.grade || '—',       _code: s.student_code   || '—' })),
+        ...(tchData  || []).map(t => ({ ...t, _kind: 'teacher',   _label: t.subject || '—',     _code: t.teacher_code   || '—' })),
+        ...(asstData || []).map(a => ({ ...a, _kind: 'assistant', _label: a.role_title || '—',  _code: a.assistant_code || '—' })),
+      ].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at))
+      setTrashItems(combined)
+    } finally {
+      setTrashLoading(false)
+    }
+  }, [])
+
+  // Auto-reload trash when the tab is opened
+  useEffect(() => { if (active === 'trash') loadTrash() }, [active, loadTrash])
+
+  // Soft-delete handler (called from student card / teacher row / assistant row)
+  const handleSoftDelete = async () => {
+    if (!trashConfirm) return
+    const { item, kind } = trashConfirm
+    setTrashBusy(true)
+    try {
+      const dbId = item.dbId ?? item.id
+      if (kind === 'student')   await studentsAPI.trash(dbId)
+      else if (kind === 'teacher')   await teachersAPI.trash(dbId)
+      else if (kind === 'assistant') await assistantsAPI.trash(dbId)
+      // Remove from active lists
+      if (kind === 'student')        setStudents(prev   => prev.filter(s => (s.dbId ?? s.id) !== dbId))
+      else if (kind === 'teacher')   setTeachers(prev   => prev.filter(t => (t.dbId ?? t.id) !== dbId))
+      else if (kind === 'assistant') setAssistants(prev => prev.filter(a => (a.dbId ?? a.id) !== dbId))
+      setTrashConfirm(null)
+      showTrashToast(`${item.name || item.full_name} moved to Trash`)
+    } catch (e) {
+      alert('Error moving to trash: ' + e.message)
+    } finally {
+      setTrashBusy(false)
+    }
+  }
+
+  // Restore handler (called from Trash section)
+  const handleRestore = async (item) => {
+    setTrashBusy(true)
+    try {
+      const dbId = item.id
+      if (item._kind === 'student')        await studentsAPI.restore(dbId)
+      else if (item._kind === 'teacher')   await teachersAPI.restore(dbId)
+      else if (item._kind === 'assistant') await assistantsAPI.restore(dbId)
+      setTrashItems(prev => prev.filter(i => i.id !== dbId || i._kind !== item._kind))
+      // Reload the active list so the restored record reappears
+      if (item._kind === 'student')        studentsAPI.getAll().then(d   => setStudents((d||[]).map(normalizeStudent))).catch(()=>{})
+      else if (item._kind === 'teacher')   teachersAPI.getAll().then(d   => setTeachers((d||[]).map(normalizeTeacher))).catch(()=>{})
+      else if (item._kind === 'assistant') assistantsAPI.getAll().then(d => setAssistants((d||[]).map(normalizeAssistant))).catch(()=>{})
+      showTrashToast(`${item.full_name} restored successfully`)
+    } catch (e) {
+      alert('Error restoring: ' + e.message)
+    } finally {
+      setTrashBusy(false)
+    }
+  }
+
+  // Permanent delete handler (called after hard-delete confirmation)
+  const handleHardDelete = async () => {
+    if (!hardConfirm) return
+    const { item } = hardConfirm
+    setTrashBusy(true)
+    try {
+      const dbId = item.id
+      if (item._kind === 'student')        await studentsAPI.delete(dbId)
+      else if (item._kind === 'teacher')   await teachersAPI.delete(dbId)
+      else if (item._kind === 'assistant') await assistantsAPI.delete(dbId)
+      setTrashItems(prev => prev.filter(i => i.id !== dbId || i._kind !== item._kind))
+      setHardConfirm(null)
+      showTrashToast(`${item.full_name} permanently deleted`)
+    } catch (e) {
+      alert('Error deleting: ' + e.message)
+    } finally {
+      setTrashBusy(false)
+    }
+  }
 
   // ── Real results from DB ──
   const [dbResults,   setDbResults]   = useState([])
@@ -1183,6 +1483,13 @@ export default function ManagerDashboard() {
                           </div>
 
                           <button className="stu-card-btn" onClick={() => setSelectedStudent(s)}>View Profile</button>
+                          <button
+                            className="stu-card-btn stu-card-delete-btn"
+                            onClick={() => setTrashConfirm({ item: s, kind: 'student' })}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            Delete
+                          </button>
                         </div>
                       )
                     })}
@@ -1223,6 +1530,10 @@ export default function ManagerDashboard() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     Attach
                   </button>
+                  <button className="mgr-item-btn mgr-item-delete-btn" onClick={() => setTrashConfirm({ item: t, kind: 'teacher' })}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -1257,6 +1568,10 @@ export default function ManagerDashboard() {
                   <button className="af-attach-btn" onClick={()=>setAttachTarget(a)}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     Attach
+                  </button>
+                  <button className="mgr-item-btn mgr-item-delete-btn" onClick={() => setTrashConfirm({ item: a, kind: 'assistant' })}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -1773,6 +2088,121 @@ export default function ManagerDashboard() {
         )
       }
 
+            case 'trash': {
+              const filteredTrash = trashItems.filter(item => {
+                if (trashTab === 'students') return item._kind === 'student'
+                if (trashTab === 'staff')    return item._kind === 'teacher' || item._kind === 'assistant'
+                return true
+              })
+              const fmtDeleted = (d) => d ? new Date(d).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—'
+              const kindColor = (k) => k === 'student' ? '#0891b2' : k === 'teacher' ? '#7c3aed' : '#0d9488'
+              const kindLabel = (k) => k === 'student' ? 'Student' : k === 'teacher' ? 'Teacher' : 'Assistant'
+
+              return (
+                <div className="dash-content page-enter">
+                  <div className="mgr-list-header">
+                    <div>
+                      <h2 className="mgr-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" style={{verticalAlign:'middle',marginRight:8}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Trash
+                      </h2>
+                      <p className="mgr-section-sub">Soft-deleted students and staff · Restore or permanently remove</p>
+                    </div>
+                    <button className="ps-add-btn" style={{background:'#64748b'}} onClick={loadTrash} disabled={trashLoading}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.73-7.33"/></svg>
+                      Refresh
+                    </button>
+                  </div>
+
+                  {/* Tab filter */}
+                  <div className="trash-tabs">
+                    {[['all','All'],['students','Students'],['staff','Staff']].map(([val, label]) => (
+                      <button
+                        key={val}
+                        className={`trash-tab-btn ${trashTab === val ? 'trash-tab-active' : ''}`}
+                        onClick={() => setTrashTab(val)}
+                      >
+                        {label}
+                        <span className="trash-tab-count">
+                          {val === 'all'      ? trashItems.length
+                          : val === 'students' ? trashItems.filter(i => i._kind === 'student').length
+                          : trashItems.filter(i => i._kind !== 'student').length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {trashLoading ? (
+                    <div style={{textAlign:'center',padding:48,color:'#94a3b8'}}>
+                      <svg className="login-spin" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" width="32" height="32" style={{display:'block',margin:'0 auto 12px'}}>
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                      </svg>
+                      Loading Trash…
+                    </div>
+                  ) : filteredTrash.length === 0 ? (
+                    <div className="trash-empty">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" width="64" height="64" style={{color:'#cbd5e1',display:'block',margin:'0 auto 16px'}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      <div className="trash-empty-title">Trash is empty</div>
+                      <div className="trash-empty-sub">Deleted students and staff will appear here</div>
+                    </div>
+                  ) : (
+                    <div className="trash-list">
+                      {filteredTrash.map(item => {
+                        const avatar = item.avatar_url || null
+                        const n = Number(String(item._code||'').replace(/\D/g,''))||1
+                        const fallback = `https://i.pravatar.cc/80?img=${(n%70)+1}`
+                        return (
+                          <div key={`${item._kind}-${item.id}`} className="trash-item">
+                            <div className="trash-item-left">
+                              <img
+                                src={avatar || fallback}
+                                alt={item.full_name}
+                                className="trash-item-avatar"
+                                onError={e => { e.target.src = fallback }}
+                              />
+                              <div className="trash-item-info">
+                                <div className="trash-item-name">{item.full_name}</div>
+                                <div className="trash-item-meta">
+                                  <span className="trash-kind-chip" style={{background: kindColor(item._kind)+'18', color: kindColor(item._kind), border:`1px solid ${kindColor(item._kind)}30`}}>
+                                    {kindLabel(item._kind)}
+                                  </span>
+                                  <span className="trash-meta-text">{item._code}</span>
+                                  <span className="trash-meta-sep">·</span>
+                                  <span className="trash-meta-text">{item._label}</span>
+                                </div>
+                                <div className="trash-deleted-date">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="11" height="11"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                  Deleted {fmtDeleted(item.deleted_at)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="trash-item-actions">
+                              <button
+                                className="trash-restore-btn"
+                                onClick={() => handleRestore(item)}
+                                disabled={trashBusy}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.48"/></svg>
+                                Restore
+                              </button>
+                              <button
+                                className="trash-delete-btn"
+                                onClick={() => setHardConfirm({ item })}
+                                disabled={trashBusy}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                Delete Permanently
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
             case 'settings': return <ManagerSettingsSection />
 
             default: return null
@@ -1789,6 +2219,64 @@ export default function ManagerDashboard() {
         {selectedAssistant && <AssistantModal assistant={selectedAssistant} onClose={()=>setSelectedAssistant(null)} />}
         {attachTarget && <AttachModal target={attachTarget} onClose={()=>setAttachTarget(null)} onSend={handleSendFile} />}
         {profileTeacher && <TeacherProfile teacher={profileTeacher} role="manager" onClose={()=>setProfileTeacher(null)} />}
+
+        {/* ── Soft-delete (move to Trash) confirm modal ── */}
+        {trashConfirm && (
+          <div className="trash-overlay" onClick={() => !trashBusy && setTrashConfirm(null)}>
+            <div className="trash-confirm-modal" onClick={e => e.stopPropagation()}>
+              <div className="trash-confirm-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="32" height="32"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </div>
+              <div className="trash-confirm-title">Move to Trash?</div>
+              <div className="trash-confirm-body">
+                <strong>{trashConfirm.item.name || trashConfirm.item.full_name}</strong> will be moved to Trash and removed from all active lists.
+                <br /><br />
+                <span style={{color:'#0891b2',fontWeight:600}}>This is NOT permanent</span> — you can restore them at any time from the Trash section.
+              </div>
+              <div className="trash-confirm-actions">
+                <button className="trash-confirm-cancel" onClick={() => setTrashConfirm(null)} disabled={trashBusy}>
+                  Cancel
+                </button>
+                <button className="trash-confirm-ok" onClick={handleSoftDelete} disabled={trashBusy}>
+                  {trashBusy ? 'Moving…' : 'Move to Trash'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Hard (permanent) delete confirm modal ── */}
+        {hardConfirm && (
+          <div className="trash-overlay" onClick={() => !trashBusy && setHardConfirm(null)}>
+            <div className="trash-confirm-modal trash-confirm-danger" onClick={e => e.stopPropagation()}>
+              <div className="trash-confirm-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="32" height="32"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div className="trash-confirm-title">Permanently Delete?</div>
+              <div className="trash-confirm-body">
+                <strong>{hardConfirm.item.full_name}</strong> will be <span style={{color:'#dc2626',fontWeight:700}}>permanently deleted</span> from the database.
+                <br /><br />
+                This action is <strong>irreversible</strong>. All login access will be revoked. Historical records (results, attendance, payments) linked to this person will also be removed.
+              </div>
+              <div className="trash-confirm-actions">
+                <button className="trash-confirm-cancel" onClick={() => setHardConfirm(null)} disabled={trashBusy}>
+                  Cancel
+                </button>
+                <button className="trash-confirm-hard" onClick={handleHardDelete} disabled={trashBusy}>
+                  {trashBusy ? 'Deleting…' : 'Delete Permanently'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Toast notification ── */}
+        {trashToast && (
+          <div className="trash-toast">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
+            {trashToast}
+          </div>
+        )}
       </main>
     </div>
   )

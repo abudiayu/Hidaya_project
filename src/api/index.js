@@ -6,6 +6,13 @@
 
 const BASE = import.meta.env.VITE_API_BASE || '/api';
 
+// ── Warm up the backend on module load ───────────────────────
+// Render free tier goes cold after 15 min. Sending a lightweight
+// health-check as soon as the JS bundle loads means the server
+// is already warm by the time the user clicks Sign In.
+// Fire-and-forget — never blocks anything.
+fetch(`${BASE}/health`, { method: 'GET' }).catch(() => {});
+
 // ── token helpers ─────────────────────────────────────────────
 export const getToken  = () => localStorage.getItem('hidaya_token');
 export const saveToken = (t) => localStorage.setItem('hidaya_token', t);
@@ -66,6 +73,10 @@ export const studentsAPI = {
   create:   (body)      => post('/students', body),
   update:   (id, body)  => put(`/students/${id}`, body),
   delete:   (id)        => del(`/students/${id}`),
+  // Trash
+  trash:    (id)        => request('PATCH', `/students/${id}/trash`),
+  restore:  (id)        => request('PATCH', `/students/${id}/restore`),
+  getTrashed: ()        => get('/students/trash'),
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -77,17 +88,25 @@ export const teachersAPI = {
   create:   (body)      => post('/teachers', body),
   update:   (id, body)  => put(`/teachers/${id}`, body),
   delete:   (id)        => del(`/teachers/${id}`),
+  // Trash
+  trash:    (id)        => request('PATCH', `/teachers/${id}/trash`),
+  restore:  (id)        => request('PATCH', `/teachers/${id}/restore`),
+  getTrashed: ()        => get('/teachers/trash'),
 };
 
 // ═══════════════════════════════════════════════════════════════
 //  ASSISTANTS
 // ═══════════════════════════════════════════════════════════════
 export const assistantsAPI = {
-  getAll:   ()          => get('/assistants'),
-  getById:  (id)        => get(`/assistants/${id}`),
-  create:   (body)      => post('/assistants', body),
-  update:   (id, body)  => put(`/assistants/${id}`, body),
-  delete:   (id)        => del(`/assistants/${id}`),
+  getAll:     ()          => get('/assistants'),
+  getById:    (id)        => get(`/assistants/${id}`),
+  create:     (body)      => post('/assistants', body),
+  update:     (id, body)  => put(`/assistants/${id}`, body),
+  delete:     (id)        => del(`/assistants/${id}`),
+  // Trash
+  trash:      (id)        => request('PATCH', `/assistants/${id}/trash`),
+  restore:    (id)        => request('PATCH', `/assistants/${id}/restore`),
+  getTrashed: ()          => get('/assistants/trash'),
 };
 
 // ═══════════════════════════════════════════════════════════════

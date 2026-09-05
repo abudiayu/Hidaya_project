@@ -79,6 +79,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (loading) return          // prevent double-submit
     setError('')
 
     if (!form.id.trim() || !form.password) {
@@ -88,11 +89,14 @@ export default function LoginPage() {
 
     setLoading(true)
     const result = await login(form.id.trim(), form.password, role)
-    setLoading(false)
 
     if (result.success) {
-      navigate(config.redirect)
+      // Navigate immediately — don't call setLoading(false) first.
+      // The dashboard mounts while React is still rendering this component,
+      // which eliminates the visible flash of the button reverting to idle.
+      navigate(config.redirect, { replace: true })
     } else {
+      setLoading(false)
       setError(result.message || 'Invalid credentials. Please try again.')
     }
   }
